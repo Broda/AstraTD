@@ -1,0 +1,36 @@
+# Godot-generated caches and local editor state.
+.godot/
+.import/
+.mono/
+export.cfg
+export_credentials.cfg
+*.translation
+
+# Local launcher logs, temporary work, and exported builds.
+/work/
+/build/
+/builds/
+/exports/
+/dist/
+*.log
+
+# Keep .blend source files; omit Blender's numbered backups.
+*.blend[0-9]*
+
+# Python caches from asset-generation scripts.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local credentials and operating-system metadata.
+.env
+.env.*
+!.env.example
+!.env.sample
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Intentionally track Godot *.uid and *.import resource metadata,
+# project.godot, export_presets.cfg, GLB assets, and Blender sources.
