@@ -449,7 +449,6 @@ func apply_upgrade(t: Dictionary, spec: Dictionary):
  t.support += spec.get("support_add",0.0)
  t.slow_power += spec.get("slow_add",0.0)
  t.pulse_enabled = t.pulse_enabled or spec.get("pulse_unlock",false)
- t.node.scale = Vector3.ONE*(1+t.level*.1)
 
 func upgrade_cost(t: Dictionary) -> int:
  var spec = Data.upgrade_for(TYPES[t.kind].id,maxi(t.branch,0),t.level+1)
