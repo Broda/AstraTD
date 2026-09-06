@@ -1,5 +1,6 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled;
+uniform vec4 tint : source_color = vec4(.024,.043,.13,1.0);
 float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p) {
  vec2 i=floor(p), f=fract(p);f=f*f*(3.0-2.0*f);
@@ -17,5 +18,5 @@ void fragment() {
  vec3 color=mix(vec3(.012,.019,.055),vec3(.12,.06,.25),cloud);
  float filament=pow(fbm(p*1.8+5.0),4.0);
  color+=vec3(.035,.15,.21)*filament*2.0;
- ALBEDO=color;
+ ALBEDO=color+tint.rgb*.65;
 }
