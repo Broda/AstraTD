@@ -314,8 +314,11 @@ func make_ui():
  label_at(side,"Six roles • distinct specializations",Vector2(20,41),13,Color("8fa9c9"))
  for i in range(TYPES.size()):
   var t = TYPES[i]
-  var b = button_at(side,"%d  %s  %d cr\n%s" % [i+1,t.name,t.cost,t.role],Vector2(16,65+i*54),Vector2(286,49),choose_build.bind(i))
+  var b = button_at(side,"%d  %s  %d cr\n%s" % [i+1,t.name,t.cost,t.role],Vector2(16,65+i*69),Vector2(286,64),choose_build.bind(i))
   b.add_theme_font_size_override("font_size",13)
+  b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+  b.clip_text = true
+  b.size = Vector2(286,64)
   b.icon = load("res://assets/icons/"+t.model+".png")
   b.expand_icon = true
   b.add_theme_constant_override("icon_max_width",43)
@@ -323,8 +326,8 @@ func make_ui():
   b.alignment = HORIZONTAL_ALIGNMENT_LEFT
   b.add_theme_color_override("font_color",t.color)
   buy_buttons.append(b)
- label_at(side,"DEPLOYMENT / FLEET INTEL",Vector2(20,410),15)
- detail_label = label_at(side,"",Vector2(20,446),14)
+ label_at(side,"DEPLOYMENT / FLEET INTEL",Vector2(20,500),15)
+ detail_label = label_at(side,"",Vector2(20,536),14)
  detail_label.size = Vector2(280,220)
  detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
  fleet_panel = preload("res://scenes/ui/fleet_panel.gd").new()
