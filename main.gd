@@ -27,6 +27,7 @@ var range_ring: MeshInstance3D
 var pointer = Vector3.ZERO
 var valid_build = false
 var models: Array = []
+var station_gun_models: Dictionary = {}
 var enemy_model: PackedScene
 var stats_label: Label
 var wave_label: Label
@@ -61,16 +62,24 @@ func _ready():
  for t in TYPES:
   models.append(load("res://assets/" + t.model + ".glb"))
  enemy_model = load("res://assets/raider.glb")
+ station_gun_models[2] = load("res://assets/nova_gun.glb")
+ station_gun_models[3] = load("res://assets/cryo_gun.glb")
  camera = Camera3D.new()
  camera.projection = Camera3D.PROJECTION_ORTHOGONAL
  camera.size = 29.0
- camera.position = Vector3(0,40,12)
+ camera.position = Vector3(0,40,21)
  add_child(camera)
  camera.look_at(Vector3.ZERO,Vector3.UP)
  var light = DirectionalLight3D.new()
  light.rotation_degrees = Vector3(-55,-25,0)
  light.light_energy = 0.95
+ light.shadow_enabled = true
  add_child(light)
+ var rim = DirectionalLight3D.new()
+ rim.rotation_degrees = Vector3(-25,145,0)
+ rim.light_color = Color("6baffe")
+ rim.light_energy = .45
+ add_child(rim)
  var env = WorldEnvironment.new()
  var e = Environment.new()
  e.background_mode = Environment.BG_COLOR
@@ -78,6 +87,15 @@ func _ready():
  e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
  e.ambient_light_color = Color("9cb6e8")
  e.ambient_light_energy = 0.55
+ var sky = Sky.new()
+ var sky_material = ProceduralSkyMaterial.new()
+ sky_material.sky_top_color = Color("607899")
+ sky_material.sky_horizon_color = Color("a3b4c9")
+ sky_material.ground_bottom_color = Color("17243c")
+ sky_material.ground_horizon_color = Color("758ca9")
+ sky.sky_material = sky_material
+ e.sky = sky
+ e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
  env.environment = e
  add_child(env)
  make_space()
@@ -130,6 +148,8 @@ func _ready():
   run_combat_test.call_deferred()
  elif "--vfx-test" in OS.get_cmdline_user_args():
   run_vfx_test.call_deferred()
+ elif "--station-test" in OS.get_cmdline_user_args():
+  run_station_test.call_deferred()
  elif "--capture" in OS.get_cmdline_user_args():
   capture_preview.call_deferred()
 
@@ -286,9 +306,26 @@ func choose_build(kind: int):
  build_type = kind
  selected = -1
  if is_instance_valid(ghost): ghost.queue_free()
- ghost = models[kind].instantiate()
+ ghost = make_tower_model(kind)
  add_child(ghost)
  refresh_ui()
+
+func make_tower_model(kind: int) -> Node3D:
+ var model: Node3D = models[kind].instantiate()
+ if station_gun_models.has(kind):
+  for socket in model.find_children("GunSocket_*","Node3D",true,false):
+   var gun: Node3D = station_gun_models[kind].instantiate()
+   gun.name = "WeaponAssembly"
+   socket.add_child(gun)
+ return model
+
+func collect_guns(model: Node3D) -> Array:
+ var guns: Array = []
+ for socket in model.find_children("GunSocket_*","Node3D",true,false):
+  var yaw: Node3D = socket.get_node("WeaponAssembly")
+  var pitch: Node3D = yaw.find_child("BarrelPivot",true,false)
+  guns.append({"yaw":yaw,"pitch":pitch,"home":pitch.position,"recoil":0.0,"muzzles":pitch.find_children("Muzzle_*","Node3D",true,false)})
+ return guns
 
 func cancel_build():
  build_type = -1
@@ -305,13 +342,13 @@ func can_place(p: Vector3) -> bool:
 
 func deploy(kind: int, p: Vector3) -> bool:
  if credits < TYPES[kind].cost or not can_place(p): return false
- var n = models[kind].instantiate()
+ var n = make_tower_model(kind)
  n.position = p
  add_child(n)
  var platform = ring_mesh(.93,Color(TYPES[kind].color, .28))
  platform.position.y = .035
  n.add_child(platform)
- var t = {"node":n,"kind":kind,"damage":TYPES[kind].damage,"range":TYPES[kind].range,"rate":TYPES[kind].rate,"cooldown":0.0,"branch":-1,"level":0,"invested":TYPES[kind].cost,"jet_clock":0.0}
+ var t = {"node":n,"kind":kind,"damage":TYPES[kind].damage,"range":TYPES[kind].range,"rate":TYPES[kind].rate,"cooldown":0.0,"branch":-1,"level":0,"invested":TYPES[kind].cost,"jet_clock":0.0,"guns":collect_guns(n),"shot":0}
  towers.append(t)
  credits -= TYPES[kind].cost
  if active: spent = true
@@ -402,6 +439,10 @@ func spawn_enemy():
 func _process(delta):
  elapsed += delta
  fx.update(delta)
+ for t in towers:
+  for gun in t.guns:
+   gun.recoil = move_toward(gun.recoil,0,delta*.4)
+   gun.pitch.position = gun.home-Vector3(0,0,gun.recoil)
  for i in range(motes.size()):
   var d = fmod(i*path.get_baked_length()/motes.size()+elapsed*2.4,path.get_baked_length())
   motes[i].position = path.sample_baked(d)+Vector3(0,.08,sin(elapsed*1.2+i)*.45)
@@ -482,7 +523,7 @@ func _process(delta):
   ui_clock = .1
 
 func steer_ship(t: Dictionary, target_pos: Vector3, delta: float) -> bool:
- if t.kind not in [0,1]: return true
+ if t.kind in [2,3]: return aim_station_guns(t,target_pos+Vector3.UP*.25,delta)
  var direction = target_pos-t.node.position
  var desired = atan2(direction.x,direction.z)
  var error = wrapf(desired-t.node.rotation.y,-PI,PI)
@@ -498,12 +539,38 @@ func steer_ship(t: Dictionary, target_pos: Vector3, delta: float) -> bool:
   fx.jet(t.node.to_global(Vector3(-side*.62,.25,-.5)),-basis.x*side,Color("64baff"),3)
  return absf(error-step)<.20
 
+func aim_station_guns(t: Dictionary, target_pos: Vector3, delta: float) -> bool:
+ var ready = false
+ for gun in t.guns:
+  # Traverse is local to each mounting socket; the station body never rotates.
+  var local_target: Vector3 = gun.yaw.get_parent().to_local(target_pos)
+  var desired = atan2(local_target.x,local_target.z)
+  var error = wrapf(desired-gun.yaw.rotation.y,-PI,PI)
+  gun.yaw.rotation.y += clampf(error,-delta*4.4,delta*4.4)
+  var elevation: Vector3 = gun.yaw.to_local(target_pos)-gun.pitch.position
+  var pitch = -atan2(elevation.y,Vector2(elevation.x,elevation.z).length())
+  gun.pitch.rotation.x = move_toward(gun.pitch.rotation.x,clampf(pitch,-.6,.6),delta*3.5)
+  if absf(wrapf(desired-gun.yaw.rotation.y,-PI,PI))<.15: ready = true
+ return ready
+
+func fire_station_guns(t: Dictionary, target_pos: Vector3):
+ for gun in t.guns:
+  var forward: Vector3 = gun.pitch.global_basis.z.normalized()
+  var toward: Vector3 = (target_pos-gun.pitch.global_position).normalized()
+  if forward.dot(toward)<.96: continue
+  var muzzle: Node3D = gun.muzzles[t.shot%gun.muzzles.size()]
+  beam(muzzle.global_position,target_pos,TYPES[t.kind].color,.028,.16)
+  fx.jet(muzzle.global_position,forward,TYPES[t.kind].color,3)
+  gun.recoil = .045
+
 func fire(t: Dictionary, target: Dictionary):
  var origin = t.node.position+Vector3.UP*.5
  var end = target.node.position
+ t.shot += 1
  if t.kind in [0,1]:
   origin = t.node.to_global(Vector3(0,.35,1.05))
  if t.kind == 2:
+  fire_station_guns(t,end+Vector3.UP*.25)
   pulse(t.node.position,t.range,TYPES[t.kind].color)
   for e in enemies.duplicate():
    if e.node.position.distance_to(t.node.position)<=t.range: hurt(e,t.damage)
@@ -513,7 +580,8 @@ func fire(t: Dictionary, target: Dictionary):
   for e in enemies.duplicate():
    if e.node.position.distance_to(end)<1.5: hurt(e,t.damage)
  else:
-  beam(origin,end,TYPES[t.kind].color,.035,.13)
+  if t.kind == 3: fire_station_guns(t,end+Vector3.UP*.25)
+  else: beam(origin,end,TYPES[t.kind].color,.035,.13)
   if t.kind == 3:
    target.slow = 2.0
    target.factor = max(.15,.5-(t.level*.10 if t.branch == 0 else 0))
@@ -693,10 +761,10 @@ func capture_preview():
  wave = 3
  start_wave()
  set_process(false)
- for i in range(900):
+ for i in range(1300):
   _process(1.0/60.0)
   if i%60 == 0: await get_tree().process_frame
- selected = 1
+ selected = 2
  refresh_ui()
  toast_label.text = "Hold the corridor. Protect the core."
  await RenderingServer.frame_post_draw
@@ -738,4 +806,28 @@ func run_vfx_test():
  fx.update(2)
  assert(fx.particles.is_empty(),"Particles must expire")
  print("VFX TEST PASSED: left/right torque, smooth turning, hit sparks, inward collapse, cleanup")
+ get_tree().quit()
+
+func run_station_test():
+ set_process(false)
+ credits = 1000
+ assert(deploy(2,Vector3(-16,0,-5)))
+ assert(deploy(3,Vector3(-8,0,-8)))
+ for t in towers:
+  assert(t.guns.size()==(4 if t.kind==2 else 2),"Each station needs its separate gun assemblies")
+  var body_basis: Basis = t.node.basis
+  for target_offset in [Vector3(3,.7,2),Vector3(-3,.2,-2)]:
+   var target: Vector3 = t.node.position+target_offset
+   for i in range(100): aim_station_guns(t,target,.016)
+   assert(t.node.basis.is_equal_approx(body_basis),"Station body must remain fixed")
+   for gun in t.guns:
+    assert(gun.muzzles.size()>0)
+    var aim: Vector3 = gun.pitch.global_basis.z.normalized()
+    var direction: Vector3 = (target-gun.pitch.global_position).normalized()
+    assert(aim.dot(direction)>.995,"Gun barrel must point at the enemy in 3D")
+    assert(gun.muzzles[0].global_position.distance_to(gun.pitch.global_position)>.3)
+  var count = effects.size()
+  fire_station_guns(t,t.node.position+Vector3(-3,.2,-2))
+  assert(effects.size()>count,"Shots must originate from the attached gun muzzles")
+ print("STATION TEST PASSED: separate guns, yaw/elevation, stationary bodies, muzzle effects")
  get_tree().quit()
