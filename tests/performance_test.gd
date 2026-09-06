@@ -203,7 +203,10 @@ func run(node: Node):
 	game.audio.set_paused(true)
 	game.audio.apply_settings(original_audio)
 	game.clear_run()
+	# Release playback before quitting so the audio mixer can drain callbacks.
+	game.audio.queue_free()
 	await game.get_tree().process_frame
+	await game.get_tree().create_timer(.25).timeout
 	game.testing = original_testing
 	if failures.is_empty():
 		print("PERFORMANCE TEST PASSED: %d checks; %s CPU median %.3f ms / p95 %.3f ms, particles %d, effects %d, SFX voices %d" % [checks, result.mode, result.cpu_process_median_ms, result.cpu_process_p95_ms, peak_particles, peak_effects, peak_voices])
