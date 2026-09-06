@@ -3,7 +3,7 @@ extends Node3D
 const TYPES = [
  {"name":"LANCER", "role":"Laser frigate", "model":"lancer", "cost":100, "damage":14.0, "range":5.1, "rate":0.48, "color":Color("55deff"), "branches":["Overcharged beams", "Long-range optics"]},
  {"name":"BASTION", "role":"Missile cruiser · splash", "model":"bastion", "cost":170, "damage":42.0, "range":6.4, "rate":1.65, "color":Color("ffb454"), "branches":["Heavy warheads", "Rapid launchers"]},
- {"name":"NOVA", "role":"Pulse station · area attack", "model":"nova", "cost":210, "damage":19.0, "range":3.8, "rate":1.05, "color":Color("b58aff"), "branches":["Singularity core", "Expanded field"]},
+ {"name":"NOVA", "role":"Defense station · four guns", "model":"nova", "cost":210, "damage":19.0, "range":3.8, "rate":1.05, "color":Color("b58aff"), "branches":["Pulse Generator", "Long-range guns"]},
  {"name":"CRYOSTAT", "role":"Frost station · slows ships", "model":"cryostat", "cost":140, "damage":5.0, "range":4.6, "rate":0.7, "color":Color("62ffc1"), "branches":["Deep freeze", "Combat coolant"]}
 ]
 var credits = 440
@@ -150,6 +150,10 @@ func _ready():
   run_vfx_test.call_deferred()
  elif "--station-test" in OS.get_cmdline_user_args():
   run_station_test.call_deferred()
+ elif "--nova-target-test" in OS.get_cmdline_user_args():
+  run_nova_target_test.call_deferred()
+ elif "--nova-pulse-test" in OS.get_cmdline_user_args():
+  run_nova_pulse_test.call_deferred()
  elif "--capture" in OS.get_cmdline_user_args():
   capture_preview.call_deferred()
 
@@ -278,7 +282,7 @@ func make_ui():
  label_at(side,"Deploy beyond the wormhole lane",Vector2(20,46),13,Color("8fa9c9"))
  for i in range(4):
   var t = TYPES[i]
-  var descriptions = ["Precision laser · 5.1 range","Splash missiles · 6.4 range","Area pulse · 3.8 range","Slow beam · 4.6 range"]
+  var descriptions = ["Precision laser · 5.1 range","Splash missiles · 6.4 range","4 guns · 3.8 range","Slow beam · 4.6 range"]
   var b = button_at(side,"%s  %d cr\n%s" % [t.name,t.cost,descriptions[i]],Vector2(16,78+i*72),Vector2(286,62),choose_build.bind(i))
   b.add_theme_font_size_override("font_size",14)
   b.icon = load("res://assets/icons/"+t.model+".png")
@@ -324,7 +328,7 @@ func collect_guns(model: Node3D) -> Array:
  for socket in model.find_children("GunSocket_*","Node3D",true,false):
   var yaw: Node3D = socket.get_node("WeaponAssembly")
   var pitch: Node3D = yaw.find_child("BarrelPivot",true,false)
-  guns.append({"yaw":yaw,"pitch":pitch,"home":pitch.position,"recoil":0.0,"muzzles":pitch.find_children("Muzzle_*","Node3D",true,false)})
+  guns.append({"yaw":yaw,"pitch":pitch,"home":pitch.position,"recoil":0.0,"muzzles":pitch.find_children("Muzzle_*","Node3D",true,false),"target":null})
  return guns
 
 func cancel_build():
@@ -348,7 +352,7 @@ func deploy(kind: int, p: Vector3) -> bool:
  var platform = ring_mesh(.93,Color(TYPES[kind].color, .28))
  platform.position.y = .035
  n.add_child(platform)
- var t = {"node":n,"kind":kind,"damage":TYPES[kind].damage,"range":TYPES[kind].range,"rate":TYPES[kind].rate,"cooldown":0.0,"branch":-1,"level":0,"invested":TYPES[kind].cost,"jet_clock":0.0,"guns":collect_guns(n),"shot":0}
+ var t = {"node":n,"kind":kind,"damage":TYPES[kind].damage,"range":TYPES[kind].range,"rate":TYPES[kind].rate,"cooldown":0.0,"branch":-1,"level":0,"invested":TYPES[kind].cost,"jet_clock":0.0,"guns":collect_guns(n),"shot":0,"pulse_enabled":false}
  towers.append(t)
  credits -= TYPES[kind].cost
  if active: spent = true
@@ -383,7 +387,9 @@ func upgrade(branch: int):
  t.branch = branch
  t.level += 1
  if active: spent = true
- if branch == 0:
+ if t.kind == 2 and branch == 0 and t.level == 1:
+  t.pulse_enabled = true
+ elif branch == 0:
   t.damage *= 1.65
   if t.kind == 2: t.range += .25
  else:
@@ -507,6 +513,7 @@ func _process(delta):
     fx.jet(e.node.to_global(Vector3(side*.4,.24,-.65)),-e.node.global_basis.z.normalized(),Color("ff647e"),2)
  for t in towers:
   t.cooldown -= delta
+  if t.kind == 2: assign_nova_targets(t)
   var target = null
   for e in enemies:
    if e.node.position.distance_to(t.node.position)<=t.range:
@@ -523,45 +530,90 @@ func _process(delta):
   ui_clock = .1
 
 func steer_ship(t: Dictionary, target_pos: Vector3, delta: float) -> bool:
- if t.kind in [2,3]: return aim_station_guns(t,target_pos+Vector3.UP*.25,delta)
+ if t.kind == 2:
+  var ready = false
+  for gun in t.guns:
+   if gun.target != null and enemies.has(gun.target):
+    var aligned = aim_station_gun(gun,gun.target.node.position+Vector3.UP*.25,delta)
+    ready = ready or aligned
+  return ready
+ if t.kind == 3: return aim_station_guns(t,target_pos+Vector3.UP*.25,delta)
  var direction = target_pos-t.node.position
  var desired = atan2(direction.x,direction.z)
  var error = wrapf(desired-t.node.rotation.y,-PI,PI)
  var step = clampf(error,-delta*2.8,delta*2.8)
  t.node.rotate_y(step)
  t.jet_clock -= delta
- if t.kind == 0 and absf(error) > .035 and t.jet_clock <= 0:
+ var turn = signf(step)
+ var reversed = turn != t.get("rcs_turn",0.0)
+ # Track actual rotation, including small per-frame corrections to moving targets.
+ # An aiming-error dead zone can hide jets throughout a long, gradual turn.
+ if t.kind == 0 and absf(step) > .000001 and (t.jet_clock <= 0 or reversed):
   t.jet_clock = .035
+  t.rcs_turn = turn
   # Exhaust opposite the required force: bow and stern jets produce a turning couple.
-  var side = -signf(step)
+  # Keep both mirrored emitter pairs outside the detailed hull and nozzle rims.
+  var side = -turn
   var basis = t.node.global_basis.orthonormalized()
-  fx.jet(t.node.to_global(Vector3(side*.62,.25,.55)),basis.x*side,Color("83ecff"),4)
-  fx.jet(t.node.to_global(Vector3(-side*.62,.25,-.5)),-basis.x*side,Color("64baff"),3)
+  fx.jet(t.node.to_global(Vector3(side*.70,.29,.55)),basis.x*side,Color("83ecff"),4)
+  fx.jet(t.node.to_global(Vector3(-side*.70,.29,-.5)),-basis.x*side,Color("83ecff"),3)
  return absf(error-step)<.20
+
+func assign_nova_targets(t: Dictionary):
+ var candidates: Array = []
+ for e in enemies:
+  if e.node.position.distance_to(t.node.position)<=t.range: candidates.append(e)
+ candidates.sort_custom(func(a,b): return a.distance>b.distance)
+ var claimed: Array = []
+ # Keep valid, distinct locks so guns do not jitter between enemies every frame.
+ for gun in t.guns:
+  if gun.target != null and candidates.has(gun.target) and not claimed.has(gun.target):
+   claimed.append(gun.target)
+  else: gun.target = null
+ for gun in t.guns:
+  if gun.target != null: continue
+  for e in candidates:
+   if not claimed.has(e):
+    gun.target = e
+    claimed.append(e)
+    break
+  # Spare guns can share a lock when fewer than four enemies are in range.
+  if gun.target == null and not candidates.is_empty(): gun.target = candidates[0]
+
+func aim_station_gun(gun: Dictionary, target_pos: Vector3, delta: float) -> bool:
+ # Traverse is local to each mounting socket; the station body never rotates.
+ var local_target: Vector3 = gun.yaw.get_parent().to_local(target_pos)
+ var desired = atan2(local_target.x,local_target.z)
+ var error = wrapf(desired-gun.yaw.rotation.y,-PI,PI)
+ gun.yaw.rotation.y += clampf(error,-delta*4.4,delta*4.4)
+ var elevation: Vector3 = gun.yaw.to_local(target_pos)-gun.pitch.position
+ var pitch = -atan2(elevation.y,Vector2(elevation.x,elevation.z).length())
+ gun.pitch.rotation.x = move_toward(gun.pitch.rotation.x,clampf(pitch,-.6,.6),delta*3.5)
+ return absf(wrapf(desired-gun.yaw.rotation.y,-PI,PI))<.15
 
 func aim_station_guns(t: Dictionary, target_pos: Vector3, delta: float) -> bool:
  var ready = false
  for gun in t.guns:
-  # Traverse is local to each mounting socket; the station body never rotates.
-  var local_target: Vector3 = gun.yaw.get_parent().to_local(target_pos)
-  var desired = atan2(local_target.x,local_target.z)
-  var error = wrapf(desired-gun.yaw.rotation.y,-PI,PI)
-  gun.yaw.rotation.y += clampf(error,-delta*4.4,delta*4.4)
-  var elevation: Vector3 = gun.yaw.to_local(target_pos)-gun.pitch.position
-  var pitch = -atan2(elevation.y,Vector2(elevation.x,elevation.z).length())
-  gun.pitch.rotation.x = move_toward(gun.pitch.rotation.x,clampf(pitch,-.6,.6),delta*3.5)
-  if absf(wrapf(desired-gun.yaw.rotation.y,-PI,PI))<.15: ready = true
+  var aligned = aim_station_gun(gun,target_pos,delta)
+  ready = ready or aligned
  return ready
 
-func fire_station_guns(t: Dictionary, target_pos: Vector3):
+func fire_station_guns(t: Dictionary, target_pos: Vector3, independent = false):
  for gun in t.guns:
+  var aim_pos = target_pos
+  if independent:
+   if gun.target == null or not enemies.has(gun.target): continue
+   if gun.target.node.position.distance_to(t.node.position)>t.range: continue
+   aim_pos = gun.target.node.position+Vector3.UP*.25
   var forward: Vector3 = gun.pitch.global_basis.z.normalized()
-  var toward: Vector3 = (target_pos-gun.pitch.global_position).normalized()
+  var toward: Vector3 = (aim_pos-gun.pitch.global_position).normalized()
   if forward.dot(toward)<.96: continue
   var muzzle: Node3D = gun.muzzles[t.shot%gun.muzzles.size()]
-  beam(muzzle.global_position,target_pos,TYPES[t.kind].color,.028,.16)
+  beam(muzzle.global_position,aim_pos,TYPES[t.kind].color,.028,.16)
   fx.jet(muzzle.global_position,forward,TYPES[t.kind].color,3)
   gun.recoil = .045
+  # Nova's independently aimed beams are its default damage source.
+  if independent: hurt(gun.target,t.damage)
 
 func fire(t: Dictionary, target: Dictionary):
  var origin = t.node.position+Vector3.UP*.5
@@ -570,10 +622,11 @@ func fire(t: Dictionary, target: Dictionary):
  if t.kind in [0,1]:
   origin = t.node.to_global(Vector3(0,.35,1.05))
  if t.kind == 2:
-  fire_station_guns(t,end+Vector3.UP*.25)
-  pulse(t.node.position,t.range,TYPES[t.kind].color)
-  for e in enemies.duplicate():
-   if e.node.position.distance_to(t.node.position)<=t.range: hurt(e,t.damage)
+  fire_station_guns(t,end+Vector3.UP*.25,true)
+  if t.pulse_enabled:
+   pulse(t.node.position,t.range,TYPES[t.kind].color)
+   for e in enemies.duplicate():
+    if e.node.position.distance_to(t.node.position)<=t.range: hurt(e,t.damage)
  elif t.kind == 1:
   beam(origin,end,TYPES[1].color,.07,.22)
   pulse(end,1.5,Color("ffac55"))
@@ -662,11 +715,15 @@ func refresh_ui():
  elif selected >= 0 and selected<towers.size():
   var t = towers[selected]
   detail_label.text = "%s  /  TIER %d\nDamage %.0f  ·  Range %.1f\nCooldown %.2fs\n%s" % [TYPES[t.kind].name,t.level,t.damage,t.range,t.rate,"Choose one specialization:" if t.branch<0 else TYPES[t.kind].branches[t.branch]]
+  if t.kind == 2:
+   detail_label.text += "\nPulse: " + ("ONLINE" if t.pulse_enabled else "LOCKED")
   for branch in range(2):
    var b = upgrade_a if branch == 0 else upgrade_b
    b.show()
    var desc = "Damage +65%" if branch == 0 else ("Range +1.2 · damage +16%" if t.kind in [0,2] else "Fire rate +39% · damage +16%")
    if t.kind == 3 and branch == 0: desc = "Stronger slow · damage +65%"
+   if t.kind == 2 and branch == 0:
+    desc = "Unlock area pulse" if t.level==0 else "Damage +65% · range +0.25"
    b.text = "%s · %s\n%s" % [TYPES[t.kind].branches[branch],"MAX" if t.level>=3 else "%d cr" % upgrade_cost(t),desc]
    b.add_theme_font_size_override("font_size",13)
    var icon_name = ["beam","warhead","core","frost"][t.kind] if branch==0 else ("range" if t.kind in [0,2] else "rate")
@@ -788,6 +845,37 @@ func run_vfx_test():
    var lever: Vector3 = particle.pos-t.node.position
    var reaction: Vector3 = -particle.vel
    assert(signf(lever.cross(reaction).y)==direction,"Thruster torque must match the turn")
+ # A reversal must immediately light the opposite nozzles, even during cooldown.
+ fx.particles.clear()
+ t.jet_clock = .035
+ steer_ship(t,t.node.position+Vector3(-4,0,0),.001)
+ assert(fx.particles.size()==7,"Clockwise reversal must emit immediately")
+ for particle in fx.particles:
+  var local_pos: Vector3 = t.node.to_local(particle.pos)
+  assert(absf(local_pos.x)>.67,"Thrusters must clear the model's nozzle rims")
+  assert(signf(local_pos.x)==(1.0 if local_pos.z>0 else -1.0),"Clockwise turn needs the opposite bow/stern pair")
+ fx.particles.clear()
+ steer_ship(t,t.node.position+Vector3(4,0,0),.001)
+ assert(fx.particles.size()==7,"Counterclockwise reversal must also emit immediately")
+ for particle in fx.particles:
+  var local_pos: Vector3 = t.node.to_local(particle.pos)
+  assert(signf(local_pos.x)==(-1.0 if local_pos.z>0 else 1.0),"Counterclockwise turn needs the mirrored bow/stern pair")
+ # Real tracking often turns only a fraction of a degree per frame. Test both
+ # directions at normal frame rates, including turns across the +/-PI boundary.
+ for starting_heading in [0.0,PI-.02,-PI+.02]:
+  for direction in [-1.0,1.0]:
+   t.node.rotation.y = starting_heading
+   t.jet_clock = 0
+   fx.particles.clear()
+   for i in range(1,61):
+    var angle = starting_heading+direction*i*.003
+    var tracking_target: Vector3 = t.node.position+Vector3(sin(angle)*4,0,cos(angle)*4)
+    steer_ship(t,tracking_target,1.0/60.0)
+   assert(fx.particles.size()>=100,"Gradual tracking must keep pulsing the turning jets")
+   var count = fx.particles.size()
+   var stationary_target: Vector3 = t.node.position+t.node.basis.z.normalized()*4
+   for i in range(10): steer_ship(t,stationary_target,1.0/60.0)
+   assert(fx.particles.size()==count,"Stationary ships must not fire maneuvering jets")
  fx.particles.clear()
  spawn_enemy()
  enemies[0].node.position = Vector3(-9,.3,3)
@@ -805,7 +893,7 @@ func run_vfx_test():
   assert(entry.particle.pos.distance_to(entry.particle.center)<entry.radius,"Implosion must move inward")
  fx.update(2)
  assert(fx.particles.is_empty(),"Particles must expire")
- print("VFX TEST PASSED: left/right torque, smooth turning, hit sparks, inward collapse, cleanup")
+ print("VFX TEST PASSED: left/right torque, reversals, gradual tracking across angle wrap, stationary cutoff, hit sparks, inward collapse, cleanup")
  get_tree().quit()
 
 func run_station_test():
@@ -830,4 +918,101 @@ func run_station_test():
   fire_station_guns(t,t.node.position+Vector3(-3,.2,-2))
   assert(effects.size()>count,"Shots must originate from the attached gun muzzles")
  print("STATION TEST PASSED: separate guns, yaw/elevation, stationary bodies, muzzle effects")
+ get_tree().quit()
+
+func run_nova_target_test():
+ set_process(false)
+ credits = 1000
+ assert(deploy(2,Vector3(-16,0,-5)))
+ var t = towers[0]
+ var offsets = [Vector3(-2,.3,0),Vector3(2,.3,0),Vector3(0,.3,-2),Vector3(0,.3,2)]
+ for i in range(4):
+  spawn_enemy()
+  enemies[i].node.position = t.node.position+offsets[i]
+  enemies[i].distance = i
+ assign_nova_targets(t)
+ var locks: Array = []
+ for gun in t.guns:
+  assert(gun.target != null and not locks.has(gun.target),"Four guns must lock four different enemies")
+  locks.append(gun.target)
+ assign_nova_targets(t)
+ for i in range(4): assert(t.guns[i].target==locks[i],"Valid locks must remain stable")
+ for i in range(100): steer_ship(t,enemies[0].node.position,.016)
+ for gun in t.guns:
+  var toward: Vector3 = (gun.target.node.position+Vector3.UP*.25-gun.pitch.global_position).normalized()
+  assert(gun.pitch.global_basis.z.normalized().dot(toward)>.995,"Each barrel must aim at its own lock")
+ var hp: float = enemies[0].hp
+ var effect_count = effects.size()
+ fire(t,enemies[0])
+ assert(effects.size()==effect_count+8,"All four aimed guns must fire without a default area pulse")
+ for e in enemies: assert(is_equal_approx(e.hp,hp-t.damage),"Each gun must damage its own target")
+ var survivor = enemies[0]
+ for e in enemies.duplicate():
+  if e!=survivor: remove_enemy(e,false)
+ assign_nova_targets(t)
+ for gun in t.guns: assert(gun.target==survivor,"Guns must reacquire after targets disappear")
+ survivor.node.position=t.node.position+Vector3(t.range+.6,0,0)
+ assign_nova_targets(t)
+ for gun in t.guns: assert(gun.target==null,"Out-of-range enemies must lose their locks")
+ selected=0
+ upgrade(1)
+ assign_nova_targets(t)
+ for gun in t.guns: assert(gun.target==survivor,"Every gun must use the upgraded range")
+ remove_enemy(survivor,false)
+ assign_nova_targets(t)
+ for gun in t.guns: assert(gun.target==null)
+ print("NOVA TARGET TEST PASSED: distinct stable locks, independent gun damage, no default pulse, reacquisition, upgraded range")
+ get_tree().quit()
+
+func run_nova_pulse_test():
+ set_process(false)
+ credits = 10000
+ assert(deploy(2,Vector3(-16,0,-5)))
+ var t = towers[0]
+ for i in range(6):
+  spawn_enemy()
+  var angle = i*TAU/6
+  enemies[i].node.position = t.node.position+Vector3(sin(angle)*2,.3,cos(angle)*2)
+  enemies[i].hp = 1000
+  enemies[i].distance = i
+ var outside = enemies[5]
+ outside.node.position = t.node.position+Vector3(t.range+2,.3,0)
+ assign_nova_targets(t)
+ for i in range(100): steer_ship(t,enemies[0].node.position,.016)
+ assert(not t.pulse_enabled)
+ fire(t,enemies[0])
+ var hits = 0
+ for e in enemies:
+  if e.hp<1000: hits+=1
+ assert(hits==4,"Default Nova may only damage its four gun targets")
+ assert(enemies[0].hp==1000 and outside.hp==1000,"Unselected and out-of-range enemies must receive no area damage")
+ selected=0
+ active=true
+ spent=false
+ var previous = credits
+ var price = upgrade_cost(t)
+ upgrade(0)
+ assert(t.pulse_enabled and t.level==1 and t.branch==0)
+ assert(credits==previous-price and spent,"Pulse purchase must charge credits and forfeit the wave savings bonus")
+ assert(t.damage==TYPES[2].damage,"First pulse upgrade unlocks the weapon without a hidden gun damage increase")
+ for e in enemies: e.hp=1000
+ fire(t,enemies[0])
+ for e in enemies:
+  if e==outside:
+   assert(e.hp==1000)
+  else:
+   var locked=false
+   for gun in t.guns:
+    if gun.target==e: locked=true
+   assert(is_equal_approx(e.hp,1000-t.damage*(2 if locked else 1)),"Pulse adds one area hit alongside gun damage")
+ upgrade(0)
+ assert(t.pulse_enabled and is_equal_approx(t.damage,TYPES[2].damage*1.65))
+ assert(deploy(2,Vector3(-8,0,-8)))
+ selected=1
+ upgrade(1)
+ assert(not towers[1].pulse_enabled,"Range upgrades must not unlock the pulse")
+ previous=credits
+ upgrade(0)
+ assert(not towers[1].pulse_enabled and credits==previous,"The alternate branch must remain exclusive")
+ print("NOVA PULSE TEST PASSED: guns-only default, paid pulse unlock, additional area damage, upgrades, range boundaries, savings forfeiture")
  get_tree().quit()

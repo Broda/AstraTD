@@ -20,7 +20,7 @@ Double-click `Launch.cmd` on this machine. Alternatively, import `project.godot`
 | --- | ---: | --- | ---: | --- |
 | Lancer | 100 | Rapid single-target laser | 5.1 | Damage / range |
 | Bastion | 170 | Explosive missile strike, 1.5 splash radius | 6.4 | Damage / fire rate |
-| Nova | 210 | Pulse damages all enemies in range | 3.8 | Damage / range |
+| Nova | 210 | Four independently targeted guns | 3.8 | Pulse Generator / long-range guns |
 | Cryostat | 140 | Low-damage beam slows enemies for 2 seconds | 4.6 | Stronger slow / fire rate |
 
 Enemy count, health, and speed increase each wave. Fast ships arrive from wave 2, armored ships from wave 3, and a dreadnought every fifth wave. Survival is endless.
@@ -33,6 +33,10 @@ All five units have complete three-dimensional hulls and undersides. Materials u
 
 Nova mounts four independent twin-barrel turrets (`nova_gun.glb`); Cryostat mounts two coil projectors (`cryo_gun.glb`). Gun assemblies attach to `GunSocket_*` nodes on the fixed station bodies. Each has a yawing head, a `BarrelPivot` for elevation and recoil, and `Muzzle_*` nodes from which its firing effects originate. The station bodies do not turn to aim.
 
+Nova's guns maintain separate enemy locks, spreading across up to four enemies in range. Spare guns share a target when fewer enemies are available; lost or out-of-range targets are replaced automatically. Each aligned gun deals its listed damage to its own target on the shared firing cooldown. A newly built Nova has no area attack.
+
+The first **Pulse Generator** upgrade unlocks an additional area pulse on each firing cycle, dealing the listed damage once to every enemy in range. It costs 147 credits and does not increase gun damage on unlock. Subsequent tiers increase gun and pulse damage by 65% and range by 0.25. The exclusive **Long-range guns** branch increases gun range and damage but never unlocks the pulse. Buying the pulse during a wave forfeits the no-purchase bonus like other upgrades.
+
 The Lancer turns smoothly using opposing bow/stern thrusters. Its jets emit from the side opposite the required force. Enemy hits release sparks; destroyed ships collapse inward. Purchase buttons use renders of the actual ships and individual upgrade symbols.
 
 To regenerate assets, run Blender in background mode with `--python source/build_models.py` (the entry point for `build_detailed_models.py`), then `--python source/render_fleet_icons.py` to render the purchase icons and model gallery. The renderer preserves the exported game materials. `model_previews/fleet_gallery.png` and `model_previews/nova_side.png` show the assembled models and underside structure.
@@ -40,5 +44,9 @@ To regenerate assets, run Blender in background mode with `--python source/build
 Run Godot with `--headless --path . -- --smoke-test` for economy and placement assertions, `--headless --path . -- --combat-test` for five-wave combat and game-over checks, or `--headless --path . -- --vfx-test` to verify thrust direction, impact effects, inward collapse, and particle cleanup. `-- --capture` creates a staged gameplay screenshot and exits.
 
 `--headless --path . -- --station-test` verifies separate gun attachments, barrel alignment in yaw and elevation, stationary station bodies, and firing from weapon muzzles.
+
+`--headless --path . -- --nova-target-test` checks distinct stable locks, independent aiming and beams, damage balance, target replacement, and upgraded range.
+
+`--headless --path . -- --nova-pulse-test` checks the guns-only default, paid pulse unlock, additional area damage, exclusive branches, range limits, and the wave savings rule.
 
 This first playable version has one map and session-only progress. The local launcher requires the Godot installation path shown above; the project itself can be opened on other machines with Godot 4.x.
