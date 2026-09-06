@@ -2,6 +2,9 @@ class_name RunStorage
 extends RefCounted
 ## Preparation snapshots, completion progress, and atomic versioned JSON helpers.
 
+const Data = preload("res://scripts/data/game_data.gd")
+const TARGETING_MODES = ["first", "last", "strongest", "nearest", "unslowed"]
+const AIM_MODES = ["focus", "distribute"]
 const VERSION := 1
 const SLOT_COUNT := 3
 const MAX_FILE_BYTES := 2 * 1024 * 1024
@@ -83,10 +86,19 @@ static func validate_run(data: Dictionary) -> String:
 		for coordinate in tower.position:
 			if not _number(coordinate) or absf(float(coordinate)) > 10000.0:
 				return "A saved tower has an invalid position."
-		if not _integer_in(tower.get("tier"), 0, 3) or not _integer_in(tower.get("branch"), -1, 1):
+		var definition = Data.tower_by_id(tower.type_id)
+		if definition.is_empty():
+			return "A saved tower has an unknown type ID."
+		if not _integer_in(tower.get("tier"), 0, 3) or not _integer_in(tower.get("branch"), -1, definition.branch_ids.size() - 1):
 			return "A saved tower has an invalid upgrade."
 		if (int(tower.tier) == 0) != (int(tower.branch) == -1):
 			return "A saved tower has inconsistent upgrade prerequisites."
+		if tower.has("targeting") and tower.targeting not in TARGETING_MODES:
+			return "A saved tower has an unsupported targeting priority."
+		if tower.has("aim_mode") and tower.aim_mode not in AIM_MODES:
+			return "A saved tower has an unsupported aiming mode."
+		if tower.has("branch_id") and (typeof(tower.branch_id) != TYPE_STRING or (not tower.branch_id.is_empty() and not _stable_id(tower.branch_id))):
+			return "A saved tower has an invalid branch ID."
 	return ""
 
 static func read_document(path: String, kind: String) -> Dictionary:
@@ -160,6 +172,8 @@ static func _validate_document_data(kind: String, data: Dictionary) -> String:
 			if not _integer_in(data[map_id].get("wins"), 1, 1000000000):
 				return "Map completion progress is corrupt."
 	if kind == "settings":
+		if data.has("effects_intensity") and data.effects_intensity not in ["normal", "reduced"]:
+			return "Settings contain an unsupported effects intensity."
 		for key in ["fullscreen", "music_enabled", "sfx_enabled"]:
 			if typeof(data.get(key)) != TYPE_BOOL:
 				return "Settings contain an invalid toggle."

@@ -2,13 +2,22 @@ extends RefCounted
 ## Stable, reusable content definitions. Runtime state must never be stored here.
 
 const TOWERS = [
- {"id":"lancer", "name":"LANCER", "role":"Laser frigate", "model":"lancer", "cost":100, "damage":14.0, "range":5.1, "rate":0.48, "color":Color("55deff"), "branches":["Overcharged beams", "Long-range optics"], "branch_ids":["overcharge","optics"]},
- {"id":"bastion", "name":"BASTION", "role":"Missile cruiser · splash", "model":"bastion", "cost":170, "damage":42.0, "range":6.4, "rate":1.65, "color":Color("ffb454"), "branches":["Heavy warheads", "Rapid launchers"], "branch_ids":["warheads","launchers"]},
- {"id":"nova", "name":"NOVA", "role":"Defense station · four guns", "model":"nova", "cost":210, "damage":19.0, "range":3.8, "rate":1.05, "color":Color("b58aff"), "branches":["Pulse Generator", "Long-range guns"], "branch_ids":["pulse","guns"]},
- {"id":"cryostat", "name":"CRYOSTAT", "role":"Frost station · slows ships", "model":"cryostat", "cost":140, "damage":5.0, "range":4.6, "rate":0.7, "color":Color("62ffc1"), "branches":["Deep freeze", "Combat coolant"], "branch_ids":["freeze","coolant"], "slow":0.5, "slow_duration":2.0},
- {"id":"railgun", "name":"RAILGUN", "role":"Long-range armor piercing frigate", "model":"railgun", "cost":300, "damage":118.0, "range":8.2, "rate":2.35, "color":Color("ffd18a"), "branches":["Kinetic accelerator", "Targeting array"], "branch_ids":["accelerator","targeting"], "armor_pierce":true},
- {"id":"support", "name":"RELAY", "role":"Support station · nearby damage aura", "model":"relay", "cost":190, "damage":7.0, "range":5.6, "rate":1.1, "color":Color("73ffcf"), "branches":["Power amplification", "Extended relay"], "branch_ids":["amplification","relay"], "support":0.18}
+ {"id":"lancer", "name":"LANCER", "role":"Laser frigate", "model":"lancer", "cost":100, "damage":14.0, "range":5.1, "rate":0.48, "color":Color("55deff"), "branches":["Overcharged beams", "Long-range optics"], "branch_ids":["overcharge","optics"], "branch_icons":["beam","range"], "branch_purposes":["Heavy hits against durable hulls", "Cover more of the route"], "targeting_default":"first"},
+ {"id":"bastion", "name":"BASTION", "role":"Missile cruiser · splash", "model":"bastion", "cost":170, "damage":42.0, "range":6.4, "rate":1.65, "color":Color("ffb454"), "branches":["Heavy warheads", "Rapid launchers"], "branch_ids":["warheads","launchers"], "branch_icons":["missile","cycle"], "branch_purposes":["Burst damage against packed formations", "More frequent salvos against rushes"], "splash_radius":1.5, "targeting_default":"first"},
+ {"id":"nova", "name":"NOVA", "role":"Defense station · four independent guns", "model":"nova", "cost":210, "damage":19.0, "range":3.8, "rate":1.05, "color":Color("b58aff"), "branches":["Pulse Generator", "Long-range guns", "Drone swarm"], "branch_ids":["pulse","guns","drones"], "branch_icons":["pulse","range","drone"], "branch_purposes":["Area damage around the station", "Extend all four guns' engagement window", "Persistent close-range pursuit inside coverage"], "gun_count":4, "drone_damage":18.0, "drone_rate":0.7, "drone_reach":1.4, "targeting_default":"first", "aim_mode_default":"distribute"},
+ {"id":"cryostat", "name":"CRYOSTAT", "role":"Frost station · slows ships", "model":"cryostat", "cost":140, "damage":5.0, "range":4.6, "rate":0.7, "color":Color("62ffc1"), "branches":["Deep freeze", "Combat coolant"], "branch_ids":["freeze","coolant"], "branch_icons":["freeze","cycle"], "branch_purposes":["Stronger slowing against durable threats", "Refresh control more frequently"], "slow":0.5, "slow_duration":2.0, "targeting_default":"unslowed"},
+ {"id":"railgun", "name":"RAILGUN", "role":"Long-range armor piercing frigate", "model":"railgun", "cost":300, "damage":118.0, "range":8.2, "rate":2.35, "color":Color("ffd18a"), "branches":["Kinetic accelerator", "Targeting array"], "branch_ids":["accelerator","targeting"], "branch_icons":["armor","range"], "branch_purposes":["Crack the heaviest armored hulls", "Reach heavy targets earlier"], "armor_pierce":true, "targeting_default":"strongest"},
+ {"id":"support", "name":"RELAY", "role":"Support-only station · strengthens nearby fleet", "model":"relay", "cost":190, "damage":0.0, "range":5.6, "rate":1.1, "color":Color("73ffcf"), "branches":["Power amplification", "Targeting network", "Fire-control network"], "branch_ids":["amplification","relay","fire_control"], "branch_icons":["support","range","cycle"], "branch_purposes":["Increase nearby fleet damage", "Extend recipient weapon range and coverage", "Increase nearby fleet rate of fire"], "support_only":true, "support":0.18, "support_damage":0.18, "support_range":0.0, "support_fire_rate":0.0, "aura_range":5.6, "gun_count":0, "targeting_default":"first"}
 ]
+
+const UPGRADE_NAMES = {
+ "lancer":[["Charged emitters","Focused beams","Overcharge matrix"],["Deep-space optics","Predictive sights","Horizon optics"]],
+ "bastion":[["Heavy payloads","Compression warheads","Siege warheads"],["Quick loaders","Twin-feed loaders","Rapid salvo array"]],
+ "nova":[["Pulse Generator","Amplified pulse","Pulse reactor"],["Extended barrels","Tracking optics","Perimeter batteries"],["Drone bay I","Drone bay II","Drone bay III"]],
+ "cryostat":[["Chilled beams","Deep-freeze coils","Absolute-zero array"],["Coolant loop","Rapid condenser","Continuous cooling"]],
+ "railgun":[["Accelerator coils","Hypervelocity rails","Kinetic lance"],["Long-range radar","Precision tracking","Horizon targeting"]],
+ "support":[["Power amplifier","Fleet amplifier","Command amplifier"],["Shared optics","Wideband targeting","Fleet targeting grid"],["Fire-control link","Synchronized cycling","Fleet fire control"]]
+}
 
 const ENEMIES = {
  "raider":{"id":"raider", "name":"Raider", "model":"raider", "hp":48.0, "speed":1.62, "reward":11, "core_damage":1, "armor":0.0, "shield":0.0, "regen":0.0, "slow_resist":0.0, "scale":0.7, "color":Color("ff6581"), "description":"Standard hull. A flexible fleet handles these ships."},
@@ -160,13 +169,27 @@ static func enemy_for_wave(enemy_id: String, map_id: String, wave_number: int) -
 
 static func upgrade_for(tower_id: String, branch: int, tier: int) -> Dictionary:
  var tower = tower_by_id(tower_id)
- if tower.is_empty() or branch<0 or branch>1 or tier<1 or tier>3: return {}
+ if tower.is_empty() or branch<0 or branch>=tower.branch_ids.size() or tier<1 or tier>3: return {}
  var branch_id: String = tower.branch_ids[branch]
- var result = {"id":"%s_%s_t%d" % [tower_id,branch_id,tier],"tower_id":tower_id,"branch":branch,"branch_id":branch_id,"tier":tier,"name":tower.branches[branch],"cost":int(tower.cost*(0.7+(tier-1)*0.6)),"prerequisite":"%s_%s_t%d" % [tower_id,branch_id,tier-1] if tier>1 else "","exclusive_branch":tower.branch_ids[1-branch],"description":"","damage_multiplier":1.0,"range_add":0.0,"rate_multiplier":1.0,"slow_add":0.0,"pulse_unlock":false,"support_add":0.0}
+ var excluded: Array = tower.branch_ids.duplicate()
+ excluded.erase(branch_id)
+ var result = {"id":"%s_%s_t%d" % [tower_id,branch_id,tier],"tower_id":tower_id,"branch":branch,"branch_id":branch_id,"tier":tier,"name":UPGRADE_NAMES[tower_id][branch][tier-1],"path_name":tower.branches[branch],"icon":tower.branch_icons[branch],"purpose":tower.branch_purposes[branch],"cost":int(tower.cost*(0.7+(tier-1)*0.6)),"prerequisite":"%s_%s_t%d" % [tower_id,branch_id,tier-1] if tier>1 else "","exclusive_branch":excluded[0],"exclusive_branches":excluded,"description":"","damage_multiplier":1.0,"range_add":0.0,"rate_multiplier":1.0,"slow_add":0.0,"pulse_unlock":false,"support_add":0.0,"support_damage_add":0.0,"support_range_add":0.0,"support_fire_rate_add":0.0,"aura_range_add":0.0,"drone_add":0}
  if tower_id=="support":
-  result.support_add = 0.10 if branch==0 else 0.04
-  result.range_add = 0.0 if branch==0 else 1.2
-  result.description = "Aura damage +10 percentage points" if branch==0 else "Range +1.2 · aura damage +4 points"
+  match branch:
+   0:
+    result.support_damage_add = 0.10
+    result.support_add = 0.10 # Legacy alias; FleetStats applies the canonical field once.
+    result.description = "Nearby fleet damage +10 percentage points"
+   1:
+    result.support_range_add = 0.12
+    result.aura_range_add = 0.4
+    result.description = "Recipient weapon range +12 points · Relay coverage +0.4"
+   2:
+    result.support_fire_rate_add = 0.12
+    result.description = "Nearby fleet rate of fire +12 percentage points"
+ elif tower_id=="nova" and branch==2:
+  result.drone_add = 1
+  result.description = "+1 drone (%d total) · 18 damage per hit · 0.70s cycle" % tier
  elif tower_id=="nova" and branch==0 and tier==1:
   result.pulse_unlock = true
   result.description = "Unlock area pulse; gun damage unchanged"

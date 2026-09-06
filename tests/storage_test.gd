@@ -30,6 +30,30 @@ func run() -> void:
 	check(loaded.data.towers[0].branch == 0 and loaded.data.towers[0].tier == 1, "Nova pulse unlock must retain its purchased branch and tier.")
 	check(loaded.data.towers[1].branch == 1 and loaded.data.towers[1].tier == 3 and not loaded.data.spent, "Exclusive branch and next-wave bonus eligibility must survive a round trip.")
 	check(loaded.data.towers[0].position == [3.25, 0.0, -2.75] and loaded.data.speed == 3, "Positions and selected speed must round trip.")
+	var expanded := snapshot.duplicate(true)
+	expanded.towers[0].branch = 2
+	expanded.towers[0].branch_id = "drones"
+	expanded.towers[0].tier = 3
+	expanded.towers[0].targeting = "strongest"
+	expanded.towers[0].aim_mode = "focus"
+	expanded.towers.append({"type_id":"support","position":[5.0,0.0,4.0],"branch":2,"branch_id":"fire_control","tier":2})
+	check(Storage.save_slot(3, expanded).ok, "Nova and Relay third paths must be valid preparation saves.")
+	var expanded_loaded = Storage.load_slot(3)
+	check(expanded_loaded.ok and expanded_loaded.data.towers[0].branch_id == "drones" and expanded_loaded.data.towers[0].tier == 3, "Purchased drones must round trip using their stable path ID.")
+	check(expanded_loaded.data.towers[0].targeting == "strongest" and expanded_loaded.data.towers[0].aim_mode == "focus", "Target priority and focus mode must round trip.")
+	check(expanded_loaded.data.towers[2].branch_id == "fire_control", "Relay fire-control upgrades must round trip.")
+	for priority in Storage.TARGETING_MODES:
+		expanded.towers[0].targeting = priority
+		check(Storage.validate_run(expanded).is_empty(), "Every supported targeting priority must be accepted.")
+	expanded.towers[0].targeting = "unknown"
+	check(not Storage.validate_run(expanded).is_empty(), "Unknown targeting priorities must be rejected.")
+	expanded.towers[0].targeting = "first"
+	expanded.towers[0].aim_mode = "unknown"
+	check(not Storage.validate_run(expanded).is_empty(), "Unknown aiming modes must be rejected.")
+	expanded.towers[0].aim_mode = "distribute"
+	expanded.towers[1].branch = 2
+	check(not Storage.validate_run(expanded).is_empty(), "A third path must be rejected on two-path ships.")
+	check(Storage.validate_run(snapshot).is_empty(), "Old v1 saves without targeting, aim mode, or branch IDs remain valid.")
 	var bad := snapshot.duplicate(true)
 	bad.towers[0].tier = 0
 	check(not Storage.save_slot(1, bad).ok, "An upgrade branch without its prerequisite tier must be rejected.")
@@ -67,6 +91,14 @@ func run() -> void:
 	Settings.apply(restored)
 	check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Music")), "Music must be muted before playback.")
 	check(is_equal_approx(db_to_linear(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("SFX"))), 0.25), "SFX volume must apply to its own bus.")
+	bad = settings.duplicate(true)
+	bad.effects_intensity = "reduced"
+	check(Settings.save_settings(bad).ok, "Reduced effects intensity must persist.")
+	bad.effects_intensity = "unbounded"
+	check(not Settings.save_settings(bad).ok, "Unknown effects intensity must be rejected.")
+	bad = settings.duplicate(true)
+	bad.erase("effects_intensity")
+	check(Settings.save_settings(bad).ok, "Old settings without effects intensity remain valid.")
 	bad = settings.duplicate(true)
 	bad.master_volume = 4.0
 	check(not Settings.save_settings(bad).ok, "Out-of-range settings must be rejected.")

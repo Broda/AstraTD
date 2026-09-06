@@ -103,19 +103,25 @@ func check_upgrades():
  var ids: Array = []
  for tower in Data.TOWERS:
   expect(Data.tower_index(tower.id)>=0,"Every tower has a stable lookup")
-  expect(tower.branches.size()==2 and tower.branch_ids.size()==2,"Every tower needs two branches")
-  for branch in range(2):
+  var path_count = 3 if tower.id in ["nova","support"] else 2
+  expect(tower.branches.size()==path_count and tower.branch_ids.size()==path_count,"Fleet path counts must match their specializations")
+  expect(tower.branch_icons.size()==path_count and tower.branch_purposes.size()==path_count,"Every path needs its own icon and tactical purpose")
+  for branch in range(tower.branch_ids.size()):
    var last_id = ""
    for tier in range(1,4):
     var item = Data.upgrade_for(tower.id,branch,tier)
     expect(not ids.has(item.id),"Upgrade IDs must be unique")
     ids.append(item.id)
     expect(item.cost==int(tower.cost*(0.7+(tier-1)*0.6)),"Upgrade costs must preserve the existing tier curve")
-    expect(item.prerequisite==last_id and item.exclusive_branch==tower.branch_ids[1-branch],"Upgrade prerequisites and exclusivity must be explicit")
+    expect(item.prerequisite==last_id,"Upgrade prerequisites must be explicit")
+    expect(item.exclusive_branches.size()==path_count-1 and not item.exclusive_branches.has(item.branch_id),"Every alternative path must be explicitly exclusive")
+    for other in tower.branch_ids:
+     expect(item.exclusive_branches.has(other)==(other!=item.branch_id),"Exclusivity must include every other path")
+    expect(not item.name.is_empty() and not item.icon.is_empty() and not item.purpose.is_empty(),"Tier cards need a name, icon, and tactical purpose")
     expect(not item.description.is_empty(),"Upgrade effect must be explained before purchase")
     last_id=item.id
    expect(Data.upgrade_for(tower.id,branch,4).is_empty(),"Tiers beyond three must be rejected")
- expect(ids.size()==36,"Six towers need six upgrades each")
+ expect(ids.size()==42,"The six-tower fleet needs 42 uniquely identified upgrades")
  var pulse = Data.upgrade_for("nova",0,1)
  expect(pulse.pulse_unlock and pulse.damage_multiplier==1.0 and pulse.range_add==0.0 and pulse.cost==147,"Nova pulse unlock must not secretly increase gun damage or range")
  for tier in range(1,4):
@@ -123,7 +129,12 @@ func check_upgrades():
  expect(Data.upgrade_for("nova",0,2).damage_multiplier==1.65 and Data.upgrade_for("nova",0,2).range_add==0.25,"Higher pulse tiers must preserve baseline behavior")
  expect(Data.upgrade_for("cryostat",0,3).slow_add==0.1,"Freeze upgrades must explicitly improve slowing")
  expect(Data.TOWERS[4].armor_pierce and Data.TOWERS[5].support>0,"New roles need explicit mechanics")
- expect(Data.upgrade_for("support",0,1).support_add>Data.upgrade_for("support",1,1).support_add,"Support branches must offer a meaningful strength/range tradeoff")
+ expect(Data.TOWERS[5].support_only and Data.TOWERS[5].damage==0.0 and Data.TOWERS[5].gun_count==0,"Relay must have no offensive attacks")
+ expect(Data.TOWERS[5].branch_ids==["amplification","relay","fire_control"],"Existing Relay branch IDs must remain stable while adding fire control")
+ expect(Data.upgrade_for("support",0,1).support_damage_add>0.0 and Data.upgrade_for("support",1,1).support_range_add>0.0 and Data.upgrade_for("support",2,1).support_fire_rate_add>0.0,"Relay paths must improve the requested three distinct recipient stats")
+ for tier in range(1,4):
+  var drone = Data.upgrade_for("nova",2,tier)
+  expect(drone.drone_add==1 and drone.damage_multiplier==1.0 and not drone.pulse_unlock,"Each drone tier must add one drone without changing the four guns or unlocking pulse")
  expect(Data.upgrade_for("missing",0,1).is_empty() and Data.upgrade_for("lancer",2,1).is_empty(),"Invalid upgrade IDs/branches must be rejected")
 
 func check_copy_isolation():
