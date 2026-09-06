@@ -2,6 +2,7 @@ extends Node3D
 
 const CAPACITY = 2400
 var particles: Array = []
+var reduced = false
 var cloud: MultiMeshInstance3D
 var random = RandomNumberGenerator.new()
 
@@ -39,12 +40,12 @@ func add_particle(pos: Vector3, velocity: Vector3, color: Color, life: float, si
  particles.append({"pos":pos,"start":pos,"vel":velocity,"color":color,"life":life,"max":life,"size":size,"center":center})
 
 func jet(pos: Vector3, direction: Vector3, color: Color, count = 3):
- for i in range(count):
+ for i in range(maxi(1,ceili(count*.35)) if reduced else count):
   var spread = Vector3(random.randf_range(-.3,.3),random.randf_range(-.12,.12),random.randf_range(-.3,.3))
   add_particle(pos,(direction+spread)*random.randf_range(1.5,3.7),color,random.randf_range(.15,.34),random.randf_range(.18,.32))
 
 func sparks(pos: Vector3, color = Color("ffc675")):
- for i in range(13):
+ for i in range(4 if reduced else 13):
   var angle = random.randf()*TAU
   var direction = Vector3(cos(angle),random.randf_range(-.15,.7),sin(angle))
   add_particle(pos,direction*random.randf_range(1.1,4.2),color.lerp(Color.WHITE,random.randf()*.65),random.randf_range(.16,.42),random.randf_range(.12,.24))
@@ -52,7 +53,7 @@ func sparks(pos: Vector3, color = Color("ffc675")):
 
 func implode(pos: Vector3, large: bool):
  var radius = 2.0 if large else 1.15
- for i in range(65 if large else 36):
+ for i in range((20 if large else 11) if reduced else (65 if large else 36)):
   var angle = random.randf()*TAU
   var offset = Vector3(cos(angle),random.randf_range(-.25,.25),sin(angle))*random.randf_range(.35,radius)
   add_particle(pos+offset,Vector3.ZERO,Color("b999ff").lerp(Color("72ebff"),random.randf()),random.randf_range(.4,.72),random.randf_range(.16,.34),pos)

@@ -87,7 +87,7 @@ func run(node: Node):
 	Storage.storage_root = original_root
 	game.testing = original_testing
 	if failures.is_empty():
-		print("INTEGRATION TEST PASSED: %d checks; finite map reset and lanes, pause/speed, saved fleet reconstruction, rejected-load preservation, defenses, relay mounts, terminal rewards and progress" % checks)
+		print("INTEGRATION TEST PASSED: %d checks; finite map reset and lanes, pause/speed, saved fleet reconstruction, rejected-load preservation, defenses, support-only relay, terminal rewards and progress" % checks)
 	else:
 		print("INTEGRATION TEST FAILED: %d / %d checks" % [failures.size(), checks])
 	game.get_tree().quit(0 if failures.is_empty() else 1)
@@ -156,7 +156,7 @@ func frozen_snapshot() -> Dictionary:
 
 func check_pause_and_navigation():
 	reset()
-	var index = place("support", Vector3(7, 0, 8))
+	var index = place("cryostat", Vector3(7, 0, 8))
 	if index < 0:
 		return
 	game.towers[index].cooldown = 1.5
@@ -341,6 +341,7 @@ func check_damage_rules():
 		return
 	var cryo = game.towers[cryo_index]
 	var boss = enemy("dreadnought")
+	for _frame in range(180): game.steer_ship(cryo,boss.node.position,1.0/60.0)
 	game.fire(cryo, boss)
 	expect(is_equal_approx(boss.factor, .675) and boss.slow == 2, "Boss slowing must apply the explicit 35% resistance")
 	cryo.slow_power = .8
@@ -377,7 +378,7 @@ func check_support_and_mounts():
 	receiver.node.position = Vector3.ZERO
 	relay.node.position = Vector3(2, 0, 0)
 	stronger.node.position = Vector3(-2, 0, 0)
-	stronger.support = .38
+	stronger.support_damage = .38
 	expect(is_equal_approx(game.support_multiplier(receiver), 1.38), "Overlapping support auras must use the strongest bonus only")
 	stronger.node.position = Vector3(20, 0, 0)
 	expect(is_equal_approx(game.support_multiplier(receiver), 1.18), "An out-of-range aura must stop affecting a ship")
@@ -388,41 +389,21 @@ func check_support_and_mounts():
 	target.node.position = Vector3(0, .3, 3)
 	game.fire(receiver, target)
 	expect(is_equal_approx(target.hp, 1000 - receiver.damage * 1.18), "Support must increase actual weapon damage, not only displayed stats")
-	if not expect(relay.guns.size() == 2, "Relay must mount two independent weapon assemblies"):
-		return
+	expect(relay.guns.is_empty(), "Support-only Relay must have no offensive weapon assemblies")
 	var body: Transform3D = relay.node.transform
-	var headings: Array = []
-	for gun in relay.guns:
-		expect(gun.pitch != null and gun.muzzles.size() == 1, "Relay weapons must expose their elevation pivot and single muzzle")
-		headings.append(gun.yaw.rotation.y)
-	for i in range(120):
-		game.steer_ship(relay, target.node.position, 1.0 / 60)
-	expect(relay.node.transform.is_equal_approx(body), "Relay station body must stay fixed while its guns track")
-	for i in range(relay.guns.size()):
-		var gun = relay.guns[i]
-		var aim: Vector3 = target.node.position + Vector3.UP * .25
-		var direction: Vector3 = (aim - gun.pitch.global_position).normalized()
-		expect(not is_equal_approx(gun.yaw.rotation.y, headings[i]), "Each relay head must traverse independently")
-		expect(gun.pitch.global_basis.z.normalized().dot(direction) > .96, "Each relay barrel must align in yaw and elevation")
-	var muzzle_positions: Array = []
-	for gun in relay.guns:
-		muzzle_positions.append(gun.muzzles[0].global_position)
+	var health: float = target.hp
 	var effect_count: int = game.effects.size()
-	game.fire(relay, target)
-	expect(game.effects.size() == effect_count + relay.guns.size() * 2, "Aligned relay guns must each emit a firing beam and its glow")
-	for i in range(relay.guns.size()):
-		expect(relay.guns[i].recoil > 0, "Each relay barrel must receive independent recoil")
-		if game.effects.size() > effect_count + i * 2:
-			var beam_node: MeshInstance3D = game.effects[effect_count + i * 2].node
-			var beam_start = beam_node.global_position - beam_node.global_basis.y * beam_node.mesh.height * .5
-			expect(beam_start.is_equal_approx(muzzle_positions[i]), "Relay beams must originate at transformed weapon muzzles")
-	game.towers[relay_index].cooldown = 1
+	var shot_count: int = relay.shot
+	for i in range(120): game.steer_ship(relay,target.node.position,1.0/60.0)
+	game.fire(relay,target)
+	game.fire_station_guns(relay,target.node.position)
+	expect(relay.node.transform.is_equal_approx(body), "Relay must remain a stationary support platform")
+	expect(target.hp == health and game.effects.size() == effect_count and relay.shot == shot_count, "Relay must never fire or damage enemies, including direct attack calls")
 	game.start_wave()
 	game.remaining = 1
 	game.spawn_clock = 100
-	var recoil: float = relay.guns[0].recoil
 	game._process(.02)
-	expect(relay.guns[0].recoil < recoil and relay.node.transform.is_equal_approx(body), "Recoil must recover without rotating the station body")
+	expect(relay.shot == 0, "Active combat must keep Relay non-offensive")
 
 
 func check_terminal_guards():

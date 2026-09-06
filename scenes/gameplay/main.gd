@@ -2,6 +2,10 @@ extends Node3D
 
 const Data = preload("res://scripts/data/game_data.gd")
 const TYPES = Data.TOWERS
+const Stats = preload("res://scripts/data/fleet_stats.gd")
+const Targeting = preload("res://scripts/fleet/targeting.gd")
+const DroneController = preload("res://scripts/fleet/nova_drones.gd")
+const MAX_EFFECTS = 256
 enum Session { MAIN_MENU, PREPARATION, ACTIVE_WAVE, PAUSED, VICTORY, DEFEAT }
 var session_state = Session.MAIN_MENU
 var resume_state = Session.PREPARATION
@@ -22,8 +26,6 @@ var audio: Node
 var settings: Dictionary = {}
 var pause_button: Button
 var speed_buttons: Array = []
-var upgrade_buttons: Array = []
-var branch_labels: Array = []
 var hud_panels: Array = []
 var credits = 440
 var integrity = 20
@@ -54,9 +56,6 @@ var status_label: Label
 var detail_label: Label
 var toast_label: Label
 var next_button: Button
-var upgrade_a: Button
-var upgrade_b: Button
-var sell_button: Button
 var buy_buttons: Array = []
 var toast_time = 0.0
 var ui: CanvasLayer
@@ -65,6 +64,14 @@ var rng = RandomNumberGenerator.new()
 var motes: Array = []
 var fx: Node3D
 var ui_clock = 0.0
+var drone_controller = DroneController.new()
+var preview_ring: MeshInstance3D
+var preview_branch = -1
+var preview_tier = 0
+var spawn_serial = 0
+var fleet_panel: Control
+var catalogue_panel: Panel
+var bottom_panel: Panel
 
 func mat(color: Color) -> StandardMaterial3D:
  var m = StandardMaterial3D.new()
@@ -123,6 +130,9 @@ func _ready():
  range_ring = ring_mesh(1.0,Color(0.3,0.9,1,0.6))
  add_child(range_ring)
  range_ring.hide()
+ preview_ring = ring_mesh(1.0,Color("ffc46b"))
+ add_child(preview_ring)
+ preview_ring.hide()
  testing = Array(OS.get_cmdline_user_args()).any(func(arg): return arg.ends_with("-test") or arg in ["--capture","--ui-capture"])
  make_ui()
  settings = load("res://scripts/services/game_settings.gd").defaults() if testing else load("res://scripts/services/game_settings.gd").load_settings()
@@ -139,7 +149,9 @@ func _ready():
   to_main_menu()
  get_tree().auto_accept_quit = false
  refresh_ui()
- if "--smoke-test" in OS.get_cmdline_user_args():
+ if "--fleet-systems-test" in OS.get_cmdline_user_args():
+  run_check("res://tests/fleet_systems_test.gd")
+ elif "--smoke-test" in OS.get_cmdline_user_args():
   run_smoke_test.call_deferred()
  elif "--combat-test" in OS.get_cmdline_user_args():
   run_combat_test.call_deferred()
@@ -296,9 +308,10 @@ func make_ui():
  for i in range(3):
   speed_buttons.append(button_at(top,"%d×" % (i+1),Vector2(1020+i*66,23),Vector2(58,38),set_speed.bind(float(i+1))))
  var side = panel(Vector2(1100,118),Vector2(318,760))
+ catalogue_panel = side
  hud_panels.append(side)
  label_at(side,"FLEET FABRICATOR",Vector2(20,14),19)
- label_at(side,"Six roles • two exclusive branches",Vector2(20,41),13,Color("8fa9c9"))
+ label_at(side,"Six roles • distinct specializations",Vector2(20,41),13,Color("8fa9c9"))
  for i in range(TYPES.size()):
   var t = TYPES[i]
   var b = button_at(side,"%d  %s  %d cr\n%s" % [i+1,t.name,t.cost,t.role],Vector2(16,65+i*54),Vector2(286,49),choose_build.bind(i))
@@ -310,34 +323,25 @@ func make_ui():
   b.alignment = HORIZONTAL_ALIGNMENT_LEFT
   b.add_theme_color_override("font_color",t.color)
   buy_buttons.append(b)
- label_at(side,"SHIP SYSTEMS / UPGRADE TREE",Vector2(20,402),15)
- detail_label = label_at(side,"",Vector2(20,433),14)
- detail_label.size = Vector2(282,120)
- for branch in range(2):
-  var branch_label = label_at(side,"",Vector2(16+branch*147,538),11,TYPES[2].color)
-  branch_label.size = Vector2(139,30)
-  branch_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-  branch_labels.append(branch_label)
-  var column: Array = []
-  for tier in range(1,4):
-   var b = button_at(side,"",Vector2(16+branch*147,577+(tier-1)*42),Vector2(139,38),upgrade.bind(branch))
-   b.add_theme_font_size_override("font_size",12)
-   b.focus_entered.connect(func(): notify(b.tooltip_text))
-   column.append(b)
-  upgrade_buttons.append(column)
- upgrade_a = upgrade_buttons[0][0]
- upgrade_b = upgrade_buttons[1][0]
- sell_button = button_at(side,"",Vector2(16,708),Vector2(286,36),sell_selected)
- var bottom = panel(Vector2(22,748),Vector2(1062,130))
+ label_at(side,"DEPLOYMENT / FLEET INTEL",Vector2(20,410),15)
+ detail_label = label_at(side,"",Vector2(20,446),14)
+ detail_label.size = Vector2(280,220)
+ detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+ fleet_panel = preload("res://scenes/ui/fleet_panel.gd").new()
+ ui.add_child(fleet_panel)
+ fleet_panel.setup(self)
+ hud_panels.append(fleet_panel)
+ var bottom = panel(Vector2(22,748),Vector2(882,130))
+ bottom_panel = bottom
  hud_panels.append(bottom)
- wave_label = label_at(bottom,"",Vector2(20,13),20)
+ wave_label = label_at(bottom,"",Vector2(20,13),18)
  status_label = label_at(bottom,"",Vector2(20,44),13,Color("91afcf"))
- status_label.size = Vector2(780,54)
+ status_label.size = Vector2(608,54)
  status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
- label_at(bottom,"1–6  Build   •   Click  Deploy / inspect   •   Right-click  Cancel   •   Esc / P  Pause",Vector2(20,105),12,Color("6d8bae"))
- next_button = button_at(bottom,"NEXT WAVE →",Vector2(820,28),Vector2(222,60),start_wave)
+ label_at(bottom,"1–6  Build  •  Click  Deploy / inspect  •  Right-click  Cancel  •  Esc / P  Pause",Vector2(20,105),12,Color("6d8bae"))
+ next_button = button_at(bottom,"NEXT WAVE →",Vector2(648,28),Vector2(214,60),start_wave)
  toast_label = label_at(ui,"",Vector2(40,124),16,Color("73e6e2"))
- toast_label.size = Vector2(1020,55)
+ toast_label.size = Vector2(860,55)
  toast_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func choose_build(kind: int):
@@ -351,7 +355,7 @@ func choose_build(kind: int):
 
 func make_tower_model(kind: int) -> Node3D:
  var model: Node3D = models[kind].instantiate()
- if station_gun_models.has(kind):
+ if station_gun_models.has(kind) and kind != 5:
   for socket in model.find_children("GunSocket_*","Node3D",true,false):
    var gun: Node3D = station_gun_models[kind].instantiate()
    gun.name = "WeaponAssembly"
@@ -361,6 +365,7 @@ func make_tower_model(kind: int) -> Node3D:
 func collect_guns(model: Node3D) -> Array:
  var guns: Array = []
  for socket in model.find_children("GunSocket_*","Node3D",true,false):
+  if not socket.has_node("WeaponAssembly"): continue
   var yaw: Node3D = socket.get_node("WeaponAssembly")
   var pitch: Node3D = yaw.find_child("BarrelPivot",true,false)
   guns.append({"yaw":yaw,"pitch":pitch,"home":pitch.position,"recoil":0.0,"muzzles":pitch.find_children("Muzzle_*","Node3D",true,false),"target":null})
@@ -399,7 +404,21 @@ func create_tower(kind: int, p: Vector3) -> Dictionary:
  var platform = ring_mesh(.93,Color(TYPES[kind].color, .28))
  platform.position.y = .035
  n.add_child(platform)
- var t = {"node":n,"kind":kind,"damage":TYPES[kind].damage,"range":TYPES[kind].range,"rate":TYPES[kind].rate,"cooldown":0.0,"branch":-1,"level":0,"invested":TYPES[kind].cost,"jet_clock":0.0,"guns":collect_guns(n),"shot":0,"pulse_enabled":false,"support":TYPES[kind].get("support",0.0),"slow_power":.5}
+ var t = Stats.base_stats(TYPES[kind].id)
+ t.merge({"node":n,"model_scale":n.scale,"kind":kind,"cooldown":0.0,"last_rate":t.rate,"branch":-1,"level":0,"invested":TYPES[kind].cost,"jet_clock":0.0,"guns":collect_guns(n),"shot":0,"targeting":TYPES[kind].get("targeting_default","first"),"aim_mode":TYPES[kind].get("aim_mode_default","distribute"),"aiming_status":"Tracking","hull_turning":false,"drones":[],"drone_shots":0})
+ var marker = ring_mesh(1.08,Color("73ffcf"))
+ marker.position.y = .07
+ marker.hide()
+ n.add_child(marker)
+ t.support_marker = marker
+ if kind == 3:
+  for gun in t.guns:
+   gun.yaw_limit = PI/2
+   var arc = make_aim_arc()
+   gun.yaw.get_parent().add_child(arc)
+   arc.position.y = .04
+   arc.hide()
+   gun.arc = arc
  towers.append(t)
  return t
 
@@ -427,28 +446,28 @@ func _unhandled_input(event):
     refresh_ui()
 
 func upgrade(branch: int):
- if not can_manage() or selected < 0 or selected >= towers.size() or branch not in [0,1]: return
+ if not can_manage() or selected < 0 or selected >= towers.size(): return
  var t = towers[selected]
- var cost = upgrade_cost(t)
- if t.level >= 3 or credits < cost or (t.branch >= 0 and t.branch != branch): return
- credits -= cost
- t.invested += cost
+ var spec = Data.upgrade_for(TYPES[t.kind].id,branch,t.level+1)
+ if spec.is_empty() or credits < spec.cost or (t.branch >= 0 and t.branch != branch): return
+ credits -= spec.cost
+ t.invested += spec.cost
  t.branch = branch
  t.level += 1
  if active: spent = true
- apply_upgrade(t,Data.upgrade_for(TYPES[t.kind].id,branch,t.level))
+ apply_upgrade(t,spec)
  dirty = true
  play_cue("upgrade")
- notify("%s upgraded to tier %d" % [TYPES[t.kind].name,t.level])
+ notify("%s · %s installed" % [TYPES[t.kind].name,spec.name])
  refresh_ui()
 
 func apply_upgrade(t: Dictionary, spec: Dictionary):
- t.damage *= spec.get("damage_multiplier",1.0)
- t.range += spec.get("range_add",0.0)
- t.rate *= spec.get("rate_multiplier",1.0)
- t.support += spec.get("support_add",0.0)
- t.slow_power += spec.get("slow_add",0.0)
- t.pulse_enabled = t.pulse_enabled or spec.get("pulse_unlock",false)
+ var previous_rate: float = effective_stats(t).rate
+ Stats.apply_upgrade(t,spec)
+ var updated_rate: float = effective_stats(t).rate
+ if previous_rate > 0: t.cooldown *= updated_rate/previous_rate
+ t.last_rate = updated_rate
+ drone_controller.sync(t,t.drone_count)
 
 func upgrade_cost(t: Dictionary) -> int:
  var spec = Data.upgrade_for(TYPES[t.kind].id,maxi(t.branch,0),t.level+1)
@@ -504,7 +523,8 @@ func spawn_enemy(enemy_id = ""):
  status.visible = spec.shield > 0 or spec.regen > 0 or enemy_id == "swift"
  n.add_child(status)
  n.position = route.sample_baked(0)+Vector3.UP*.3
- enemies.append({"id":enemy_id,"node":n,"hp":spec.hp,"maxhp":spec.hp,"distance":0.0,"speed":spec.speed,"slow":0.0,"factor":1.0,"reward":spec.reward,"elite":elite,"bar":bar,"jet_clock":0.0,"route":route,"armor":spec.armor,"shield":spec.shield,"maxshield":spec.shield,"regen":spec.regen,"slow_resist":spec.slow_resist,"core_damage":spec.core_damage,"status":status})
+ spawn_serial += 1
+ enemies.append({"spawn_id":spawn_serial,"id":enemy_id,"node":n,"hp":spec.hp,"maxhp":spec.hp,"distance":0.0,"speed":spec.speed,"slow":0.0,"factor":1.0,"reward":spec.reward,"elite":elite,"bar":bar,"jet_clock":0.0,"route":route,"armor":spec.armor,"shield":spec.shield,"maxshield":spec.shield,"regen":spec.regen,"slow_resist":spec.slow_resist,"core_damage":spec.core_damage,"status":status})
 
 func _process(delta):
  if toast_time > 0:
@@ -513,6 +533,7 @@ func _process(delta):
  if session_state not in [Session.PREPARATION,Session.ACTIVE_WAVE]: return
  delta *= game_speed
  elapsed += delta
+ fx.reduced = settings.get("effects_intensity","normal") == "reduced"
  fx.update(delta)
  for t in towers:
   for gun in t.guns:
@@ -530,14 +551,18 @@ func _process(delta):
   ghost.visible = mouse.x < 1090 and mouse.y > 105 and mouse.y < 743
   range_ring.visible = ghost.visible
   range_ring.position = pointer+Vector3.UP*.06
-  range_ring.scale = Vector3.ONE*TYPES[build_type].range
+  range_ring.scale = Vector3.ONE*TYPES[build_type].get("aura_range",TYPES[build_type].range)
   range_ring.material_override = mat(Color("54e5b1") if valid_build else Color("ff526c"))
  elif selected >= 0 and selected < towers.size():
   range_ring.show()
   range_ring.position = towers[selected].node.position+Vector3.UP*.06
-  range_ring.scale = Vector3.ONE*towers[selected].range
+  var selected_stats = effective_stats(towers[selected])
+  range_ring.scale = Vector3.ONE*(selected_stats.aura_range if selected_stats.support_only else selected_stats.range)
   range_ring.material_override = mat(TYPES[towers[selected].kind].color)
  else: range_ring.hide()
+ update_support_visuals()
+ for t in towers:
+  if t.drone_count > 0 and not active: drone_controller.update(self,t,delta,effective_stats(t))
  for i in range(portals.size()):
   portals[i].scale = Vector3.ONE*(1+sin(elapsed*2+i)*.12)
  for effect in effects.duplicate():
@@ -581,17 +606,21 @@ func _process(delta):
    for side in [-1,1]:
     fx.jet(e.node.to_global(Vector3(side*.4,.24,-.65)),-e.node.global_basis.z.normalized(),Color("ff647e"),2)
  for t in towers:
+  if t.support_only: continue
+  var current_stats = effective_stats(t)
+  if not is_equal_approx(t.last_rate,current_stats.rate):
+   t.cooldown *= current_stats.rate/t.last_rate
+   t.last_rate = current_stats.rate
   t.cooldown -= delta
-  if t.kind == 2: assign_nova_targets(t)
-  var target = null
-  for e in enemies:
-   if e.node.position.distance_to(t.node.position)<=t.range:
-    if target == null or e.distance>target.distance: target=e
-  if target != null:
+  if t.kind == 2: assign_nova_targets(t,current_stats)
+  var targets = Targeting.candidates(enemies,t.node.position,current_stats.range,t.targeting)
+  if not targets.is_empty():
+   var target: Dictionary = targets[0]
    var aligned = steer_ship(t,target.node.position,delta)
    if t.cooldown <= 0 and aligned:
-    fire(t,target)
-    t.cooldown = t.rate
+    fire(t,target,current_stats)
+    t.cooldown = current_stats.rate
+  if t.drone_count > 0: drone_controller.update(self,t,delta,current_stats)
  if remaining == 0 and enemies.is_empty(): finish_wave()
  ui_clock -= delta
  if ui_clock <= 0:
@@ -606,12 +635,14 @@ func steer_ship(t: Dictionary, target_pos: Vector3, delta: float) -> bool:
     var aligned = aim_station_gun(gun,gun.target.node.position+Vector3.UP*.25,delta)
     ready = ready or aligned
   return ready
- if t.kind in [3,5]: return aim_station_guns(t,target_pos+Vector3.UP*.25,delta)
+ if t.support_only: return false
+ if t.kind == 3: return aim_station_guns(t,target_pos+Vector3.UP*.25,delta)
  var direction = target_pos-t.node.position
  var desired = atan2(direction.x,direction.z)
  var error = wrapf(desired-t.node.rotation.y,-PI,PI)
  var step = clampf(error,-delta*2.8,delta*2.8)
  t.node.rotate_y(step)
+ t.node.basis = t.node.basis.orthonormalized().scaled(t.get("model_scale",Vector3.ONE))
  t.jet_clock -= delta
  var turn = signf(step)
  var reversed = turn != t.get("rcs_turn",0.0)
@@ -629,16 +660,16 @@ func steer_ship(t: Dictionary, target_pos: Vector3, delta: float) -> bool:
   fx.jet(t.node.to_global(Vector3(-side*.70,.29,-.5)),-basis.x*side,Color("83ecff"),3)
  return absf(error-step)<.20
 
-func assign_nova_targets(t: Dictionary):
- var candidates: Array = []
- for e in enemies:
-  if e.node.position.distance_to(t.node.position)<=t.range: candidates.append(e)
- candidates.sort_custom(func(a,b): return a.distance>b.distance)
+func assign_nova_targets(t: Dictionary, current_stats: Dictionary = {}):
+ if current_stats.is_empty(): current_stats = effective_stats(t)
+ var candidates = Targeting.candidates(enemies,t.node.position,current_stats.range,t.targeting)
+ if t.aim_mode == "focus":
+  var focus = candidates[0] if not candidates.is_empty() else null
+  for gun in t.guns: gun.target = focus
+  return
  var claimed: Array = []
- # Keep valid, distinct locks so guns do not jitter between enemies every frame.
  for gun in t.guns:
-  if gun.target != null and candidates.has(gun.target) and not claimed.has(gun.target):
-   claimed.append(gun.target)
+  if gun.target != null and candidates.has(gun.target) and not claimed.has(gun.target): claimed.append(gun.target)
   else: gun.target = null
  for gun in t.guns:
   if gun.target != null: continue
@@ -647,34 +678,42 @@ func assign_nova_targets(t: Dictionary):
     gun.target = e
     claimed.append(e)
     break
-  # Spare guns can share a lock when fewer than four enemies are in range.
   if gun.target == null and not candidates.is_empty(): gun.target = candidates[0]
 
 func aim_station_gun(gun: Dictionary, target_pos: Vector3, delta: float) -> bool:
- # Traverse is local to each mounting socket; the station body never rotates.
  var local_target: Vector3 = gun.yaw.get_parent().to_local(target_pos)
- var desired = atan2(local_target.x,local_target.z)
+ var raw_desired = atan2(local_target.x,local_target.z)
+ var limit: float = gun.get("yaw_limit",PI)
+ var desired = clampf(raw_desired,-limit,limit)
  var error = wrapf(desired-gun.yaw.rotation.y,-PI,PI)
  gun.yaw.rotation.y += clampf(error,-delta*4.4,delta*4.4)
+ if limit < PI: gun.yaw.rotation.y = clampf(gun.yaw.rotation.y,-limit,limit)
  var elevation: Vector3 = gun.yaw.to_local(target_pos)-gun.pitch.position
  var pitch = -atan2(elevation.y,Vector2(elevation.x,elevation.z).length())
  gun.pitch.rotation.x = move_toward(gun.pitch.rotation.x,clampf(pitch,-.6,.6),delta*3.5)
- return absf(wrapf(desired-gun.yaw.rotation.y,-PI,PI))<.15
+ return absf(raw_desired)<=limit+.00001 and absf(wrapf(raw_desired-gun.yaw.rotation.y,-PI,PI))<.15
 
 func aim_station_guns(t: Dictionary, target_pos: Vector3, delta: float) -> bool:
+ if t.support_only: return false
+ if t.kind == 3: steer_cryo_body(t,target_pos,delta)
  var ready = false
  for gun in t.guns:
   var aligned = aim_station_gun(gun,target_pos,delta)
   ready = ready or aligned
  return ready
 
-func fire_station_guns(t: Dictionary, target_pos: Vector3, independent = false):
+func fire_station_guns(t: Dictionary, target_pos: Vector3, independent = false, current_stats: Dictionary = {}):
+ if t.support_only: return
+ if current_stats.is_empty(): current_stats = effective_stats(t)
  for gun in t.guns:
   var aim_pos = target_pos
   if independent:
    if gun.target == null or not enemies.has(gun.target): continue
-   if gun.target.node.position.distance_to(t.node.position)>t.range: continue
+   if gun.target.node.position.distance_to(t.node.position)>current_stats.range: continue
    aim_pos = gun.target.node.position+Vector3.UP*.25
+  if gun.has("yaw_limit"):
+   var local_target: Vector3 = gun.yaw.get_parent().to_local(aim_pos)
+   if absf(atan2(local_target.x,local_target.z)) > gun.yaw_limit+.00001: continue
   var forward: Vector3 = gun.pitch.global_basis.z.normalized()
   var toward: Vector3 = (aim_pos-gun.pitch.global_position).normalized()
   if forward.dot(toward)<.96: continue
@@ -683,12 +722,15 @@ func fire_station_guns(t: Dictionary, target_pos: Vector3, independent = false):
   fx.jet(muzzle.global_position,forward,TYPES[t.kind].color,3)
   gun.recoil = .045
   # Nova's independently aimed beams are its default damage source.
-  if independent: hurt(gun.target,t.damage*support_multiplier(t))
+  if independent: hurt(gun.target,current_stats.damage)
 
-func fire(t: Dictionary, target: Dictionary):
+func fire(t: Dictionary, target: Dictionary, current_stats: Dictionary = {}):
+ if t.support_only or not enemies.has(target): return
+ if current_stats.is_empty(): current_stats = effective_stats(t)
+ if t.kind == 3 and not cryo_can_fire(t,target.node.position+Vector3.UP*.25): return
  var origin = t.node.position+Vector3.UP*.5
  var end = target.node.position
- var damage: float = t.damage*support_multiplier(t)
+ var damage: float = current_stats.damage
  play_cue(["laser","missile","laser","cryo","railgun","support"][t.kind])
  t.shot += 1
  if t.kind in [0,1,4]:
@@ -697,27 +739,28 @@ func fire(t: Dictionary, target: Dictionary):
   var muzzle = t.node.find_child("Muzzle_0",true,false)
   if muzzle != null: origin = muzzle.global_position
  if t.kind == 2:
-  fire_station_guns(t,end+Vector3.UP*.25,true)
+  fire_station_guns(t,end+Vector3.UP*.25,true,current_stats)
   if t.pulse_enabled:
    play_cue("pulse")
-   pulse(t.node.position,t.range,TYPES[t.kind].color)
+   pulse(t.node.position,current_stats.range,TYPES[t.kind].color)
    for e in enemies.duplicate():
-    if e.node.position.distance_to(t.node.position)<=t.range: hurt(e,damage)
+    if e.node.position.distance_to(t.node.position)<=current_stats.range: hurt(e,damage)
  elif t.kind == 1:
   beam(origin,end,TYPES[1].color,.07,.22)
-  pulse(end,1.5,Color("ffac55"))
+  pulse(end,current_stats.splash_radius,Color("ffac55"))
   for e in enemies.duplicate():
-   if e.node.position.distance_to(end)<1.5: hurt(e,damage)
+   if e.node.position.distance_to(end)<current_stats.splash_radius: hurt(e,damage)
  else:
-  if t.kind in [3,5]: fire_station_guns(t,end+Vector3.UP*.25)
+  if t.kind == 3: fire_station_guns(t,end+Vector3.UP*.25,false,current_stats)
   else: beam(origin,end,TYPES[t.kind].color,.065 if t.kind == 4 else .035,.20 if t.kind == 4 else .13)
   if t.kind == 3:
    var factor = 1.0-minf(.85,t.slow_power)*(1.0-target.slow_resist)
    target.factor = minf(target.factor,factor) if target.slow > 0 else factor
-   target.slow = 2.0
+   target.slow = current_stats.slow_duration
   hurt(target,damage,t.kind == 4)
 
 func beam(a: Vector3, b: Vector3, color: Color, thickness: float, life: float):
+ if effects.size() >= MAX_EFFECTS-1: return
  var n = MeshInstance3D.new()
  var mesh = CylinderMesh.new()
  mesh.top_radius = thickness
@@ -730,6 +773,7 @@ func beam(a: Vector3, b: Vector3, color: Color, thickness: float, life: float):
  var direction = (b-a).normalized()
  n.quaternion = Quaternion(Vector3.UP,direction)
  effects.append({"node":n,"life":life})
+ if settings.get("effects_intensity","normal") == "reduced": return
  var halo = n.duplicate()
  halo.mesh = mesh.duplicate()
  halo.mesh.top_radius = thickness*3.5
@@ -739,6 +783,7 @@ func beam(a: Vector3, b: Vector3, color: Color, thickness: float, life: float):
  effects.append({"node":halo,"life":life})
 
 func pulse(pos: Vector3, radius: float, color: Color):
+ if effects.size() >= MAX_EFFECTS: return
  var n = ring_mesh(.3,color)
  n.position = pos+Vector3.UP*.2
  add_child(n)
@@ -765,7 +810,8 @@ func remove_enemy(e: Dictionary, killed: bool):
   var collapse = ring_mesh(1.5 if e.elite else .95,Color("a2a4ff"))
   collapse.position = e.node.position
   add_child(collapse)
-  effects.append({"node":collapse,"life":.48,"expand":-2.0})
+  if effects.size() < MAX_EFFECTS: effects.append({"node":collapse,"life":.48,"expand":-2.0})
+  else: collapse.queue_free()
  e.node.queue_free()
  e.bar.queue_free()
  enemies.erase(e)
@@ -804,36 +850,24 @@ func refresh_ui():
   speed_buttons[i].text = ("● " if game_speed == i+1 else "")+"%d×" % (i+1)
   speed_buttons[i].disabled = not can_manage()
  for i in range(TYPES.size()): buy_buttons[i].disabled = credits<TYPES[i].cost or not can_manage()
- for label in branch_labels: label.hide()
- for column in upgrade_buttons:
-  for b in column: b.hide()
- sell_button.hide()
+ var inspecting = selected >= 0 and selected < towers.size() and build_type < 0
+ var hud_visible = menu == null or not menu.is_open()
+ catalogue_panel.visible = hud_visible and not inspecting
+ fleet_panel.refresh()
+ fleet_panel.visible = hud_visible and inspecting
  if build_type >= 0:
-  var t = TYPES[build_type]
-  detail_label.text = "%s / DEPLOYMENT\nDamage %.0f  ·  Range %.1f\nCooldown %.2fs\n%s\nGreen ring = valid placement" % [t.name,t.damage,t.range,t.rate,t.role]
- elif selected >= 0 and selected<towers.size():
-  var t = towers[selected]
-  detail_label.text = "%s  /  TIER %d\nDamage %.1f  ·  Range %.1f\nCooldown %.2fs\n%s" % [TYPES[t.kind].name,t.level,t.damage,t.range,t.rate,"Choose a branch (hover for effects)" if t.branch<0 else TYPES[t.kind].branches[t.branch]]
-  if t.kind == 2: detail_label.text += "\nPulse: " + ("ONLINE" if t.pulse_enabled else "LOCKED")
-  if t.kind == 5: detail_label.text += "\nNearby damage +%d%% (strongest only)" % roundi(t.support*100)
-  for branch in range(2):
-   branch_labels[branch].text = ("A · " if branch == 0 else "B · ")+TYPES[t.kind].branches[branch]
-   branch_labels[branch].show()
-   for tier in range(1,4):
-    var b: Button = upgrade_buttons[branch][tier-1]
-    var spec = Data.upgrade_for(TYPES[t.kind].id,branch,tier)
-    var bought: bool = t.branch == branch and t.level >= tier
-    var locked: bool = (t.branch >= 0 and t.branch != branch) or tier > t.level+1
-    var state = "PURCHASED" if bought else ("LOCKED" if locked else ("NEED CREDITS" if credits < spec.cost else "%d cr" % spec.cost))
-    b.text = "%s %d\n%s" % ["A" if branch == 0 else "B",tier,state]
-    b.tooltip_text = "%s • Tier %d • %d credits\n%s\nDamage %.1f → %.1f | Range %.2f → %.2f | Cooldown %.2fs → %.2fs\nRequires previous tier; choosing a branch locks the other." % [TYPES[t.kind].branches[branch],tier,spec.cost,spec.description,t.damage,t.damage*spec.get("damage_multiplier",1.0),t.range,t.range+spec.get("range_add",0.0),t.rate,t.rate*spec.get("rate_multiplier",1.0)]
-    b.disabled = bought or locked or credits<spec.cost or not can_manage()
-    b.show()
-  sell_button.show()
-  sell_button.disabled = not can_manage()
-  sell_button.text = "Salvage ship  +%d cr" % int(t.invested*.65)
+  var definition = TYPES[build_type]
+  if definition.get("support_only",false):
+   detail_label.text = "%s / DEPLOYMENT\nCoverage %.1f • nearby fleet only\nBase damage bonus +%d%%\n\nPaths: damage, weapon range, rate of fire.\nStrongest bonus per stat; Relays do not buff each other." % [definition.name,definition.aura_range,roundi(definition.support_damage*100)]
+  else:
+   detail_label.text = "%s / DEPLOYMENT\nDamage %.0f / hit • %.2f shots/s\nWeapon range %.1f\n\n%s\nGreen ring = valid placement" % [definition.name,definition.damage,1.0/definition.rate,definition.range,definition.role]
  else:
-  detail_label.text = "Select a ship to inspect its systems.\n\nSix nodes show both upgrade branches.\nHover or focus a node for its exact effect.\nEach branch has three tiers."
+  detail_label.text = "Select a deployed ship to inspect its systems.\n\nNamed paths have three tiers each. Choose one specialization per ship.\n\nHover or keyboard-focus any tier to inspect effects and the full investment."
+
+func show_catalogue():
+ selected = -1
+ clear_upgrade_preview()
+ refresh_ui()
 
 func run_smoke_test():
  assert(not can_place(path.sample_baked(10)))
@@ -1012,8 +1046,10 @@ func run_station_test():
   for target_offset in [Vector3(3,.7,2),Vector3(-3,.2,-2)]:
    var target: Vector3 = t.node.position+target_offset
    for i in range(100): aim_station_guns(t,target,.016)
-   assert(t.node.basis.is_equal_approx(body_basis),"Station body must remain fixed")
+   if t.kind == 2: assert(t.node.basis.is_equal_approx(body_basis),"Nova station body must remain fixed")
+   if t.kind == 3 and target_offset.z < 0: assert(not t.node.basis.is_equal_approx(body_basis),"Cryostat must turn its hull to reach rear targets")
    for gun in t.guns:
+    if t.kind == 3: assert(absf(gun.yaw.rotation.y)<=PI/2+.00001,"Cryostat mount must remain within ±90 degrees")
     assert(gun.muzzles.size()>0)
     var aim: Vector3 = gun.pitch.global_basis.z.normalized()
     var direction: Vector3 = (target-gun.pitch.global_position).normalized()
@@ -1022,7 +1058,7 @@ func run_station_test():
   var count = effects.size()
   fire_station_guns(t,t.node.position+Vector3(-3,.2,-2))
   assert(effects.size()>count,"Shots must originate from the attached gun muzzles")
- print("STATION TEST PASSED: separate guns, yaw/elevation, stationary bodies, muzzle effects")
+ print("STATION TEST PASSED: separate guns, yaw/elevation, fixed Nova, constrained Cryostat hull aiming, muzzle effects")
  get_tree().quit()
 
 func run_nova_target_test():
@@ -1159,6 +1195,10 @@ func clear_run():
  ghost = null
  build_type = -1
  selected = -1
+ preview_branch = -1
+ preview_tier = 0
+ spawn_serial = 0
+ if preview_ring != null: preview_ring.hide()
  for t in towers: t.node.queue_free()
  towers.clear()
  for enemy in enemies:
@@ -1227,12 +1267,8 @@ func next_wave_preview() -> String:
  for id in counts: descriptions.append("%d %s" % [counts[id],Data.enemy_by_id(id).name])
  return ("BOSS WARNING • " if counts.has("dreadnought") else "Next: ")+", ".join(descriptions)+". Clear: %d cr + %d if no combat purchases." % [upcoming.reward,upcoming.bonus]
 
-func support_multiplier(tower: Dictionary) -> float:
- var boost = 0.0
- for source in towers:
-  if source == tower or source.support <= boost: continue
-  if source.node.position.distance_to(tower.node.position) <= source.range: boost = source.support
- return 1.0+boost
+func support_multiplier(t: Dictionary) -> float:
+ return 1.0 + Stats.strongest_buffs(support_sources(t)).damage
 
 func set_speed(value: float):
  if not can_manage() or value not in [1.0,2.0,3.0]: return
@@ -1295,7 +1331,7 @@ func can_save() -> bool:
 func saved_run() -> Dictionary:
  var records: Array = []
  for t in towers:
-  records.append({"type_id":TYPES[t.kind].id,"position":[t.node.position.x,0,t.node.position.z],"branch":t.branch,"branch_id":TYPES[t.kind].branch_ids[t.branch] if t.branch >= 0 else "","tier":t.level})
+  records.append({"targeting":t.targeting,"aim_mode":t.aim_mode,"type_id":TYPES[t.kind].id,"position":[t.node.position.x,0,t.node.position.z],"branch":t.branch,"branch_id":TYPES[t.kind].branch_ids[t.branch] if t.branch >= 0 else "","tier":t.level})
  return {"map_id":map_data.id,"map_name":map_data.name,"difficulty":map_data.difficulty,"wave":wave,"credits":credits,"integrity":integrity,"kills":kills,"spent":false,"speed":game_speed,"towers":records}
 
 func validate_run(data: Dictionary) -> String:
@@ -1330,6 +1366,8 @@ func restore_run(data: Dictionary) -> String:
   var kind = Data.tower_index(record.type_id)
   var t = create_tower(kind,Vector3(record.position[0],record.position[1],record.position[2]))
   t.branch = TYPES[kind].branch_ids.find(record.get("branch_id",""))
+  t.targeting = record.get("targeting",t.targeting)
+  t.aim_mode = record.get("aim_mode",t.aim_mode)
   for tier in range(1,int(record.tier)+1):
    t.level = tier
    var spec = Data.upgrade_for(TYPES[kind].id,t.branch,tier)
@@ -1357,3 +1395,166 @@ func _notification(what):
 func run_check(script_path: String):
  check_runner = load(script_path).new()
  check_runner.run.call_deferred(self)
+
+
+func support_sources(t: Dictionary) -> Array:
+ var sources: Array = []
+ if t.support_only: return sources
+ for other in towers:
+  if other.support_only and other.node.position.distance_to(t.node.position) <= other.aura_range:
+   sources.append(other)
+ return sources
+
+func effective_stats(t: Dictionary, owned: Dictionary = {}) -> Dictionary:
+ var sources = support_sources(t)
+ var result = Stats.effective(t if owned.is_empty() else owned,Stats.strongest_buffs(sources))
+ result.sources = []
+ for source in sources:
+  result.sources.append({"name":"Relay %d" % (towers.find(source)+1),"damage":source.support_damage,"range":source.support_range,"fire_rate":source.support_fire_rate})
+ if result.support_only: result.affected_count = support_recipients(t.node.position,result.aura_range).size()
+ return result
+
+func support_recipients(origin: Vector3, radius: float) -> Array:
+ var result: Array = []
+ for t in towers:
+  if not t.support_only and t.node.position.distance_to(origin) <= radius: result.append(t)
+ return result
+
+func preview_upgrade(t: Dictionary, branch: int, tier: int) -> Dictionary:
+ var current = effective_stats(t)
+ var spec = Data.upgrade_for(TYPES[t.kind].id,branch,tier)
+ var result = {"current":current,"after":current,"cost":0,"next_cost":0,"purchasable":false,"state":"exclusive","reason":"Unavailable specialization"}
+ if spec.is_empty(): return result
+ var projected = Stats.preview(TYPES[t.kind].id,t,t.branch,t.level,branch,tier)
+ if projected.is_empty():
+  result.reason = "Locked by %s specialization" % TYPES[t.kind].branches[t.branch]
+  return result
+ result.after = effective_stats(t,projected)
+ if t.branch == branch and tier <= t.level:
+  result.state = "owned"
+  result.reason = "Installed · current values shown"
+  return result
+ for next_tier in range(t.level+1,tier+1): result.cost += Data.upgrade_for(TYPES[t.kind].id,branch,next_tier).cost
+ var next_spec = Data.upgrade_for(TYPES[t.kind].id,branch,t.level+1)
+ result.next_cost = next_spec.get("cost",0)
+ if tier > t.level+1:
+  result.state = "prerequisite"
+  result.reason = "Requires tier %d first · %d cr remaining investment" % [tier-1,result.cost]
+ elif credits < result.cost:
+  result.state = "unaffordable"
+  result.reason = "Need %d more credits" % (result.cost-credits)
+ else:
+  result.state = "available"
+  result.reason = "Choose this path; other paths lock" if t.branch < 0 else "Next tier available"
+  result.purchasable = can_manage()
+ if not can_manage():
+  result.purchasable = false
+  result.reason = "Resume gameplay to purchase · " + result.reason
+ return result
+
+func select_target_priority(mode: String):
+ if not can_manage() or selected < 0 or selected >= towers.size() or mode not in Targeting.MODES: return
+ var t = towers[selected]
+ if t.support_only or (mode == "unslowed" and t.kind != 3): return
+ t.targeting = mode
+ for gun in t.guns: gun.target = null
+ for drone in t.drones: drone.target = null
+ dirty = true
+ refresh_ui()
+
+func select_aim_mode(mode: String):
+ if not can_manage() or selected < 0 or selected >= towers.size() or mode not in ["focus","distribute"]: return
+ var t = towers[selected]
+ if t.kind != 2: return
+ t.aim_mode = mode
+ for gun in t.guns: gun.target = null
+ for drone in t.drones: drone.target = null
+ dirty = true
+ refresh_ui()
+
+func preview_support(branch: int, tier: int):
+ preview_branch = branch
+ preview_tier = tier
+ update_support_visuals()
+
+func clear_upgrade_preview():
+ preview_branch = -1
+ preview_tier = 0
+ if preview_ring != null: preview_ring.hide()
+
+func update_support_visuals():
+ var covered: Array = []
+ var added: Array = []
+ if preview_ring != null: preview_ring.hide()
+ if build_type == 5 and is_instance_valid(ghost) and ghost.visible:
+  covered = support_recipients(ghost.position,TYPES[5].aura_range)
+  detail_label.text = "RELAY / SUPPORT ONLY\nCoverage %.1f · Supports %d units\nNearby fleet damage +18%%\nPaths: damage / range / rate of fire" % [TYPES[5].aura_range,covered.size()]
+ elif selected >= 0 and selected < towers.size():
+  var t = towers[selected]
+  if t.support_only:
+   covered = support_recipients(t.node.position,t.aura_range)
+   if preview_branch >= 0:
+    var projected = Stats.preview(TYPES[t.kind].id,t,t.branch,t.level,preview_branch,preview_tier)
+    if not projected.is_empty() and projected.aura_range > t.aura_range:
+     added = support_recipients(t.node.position,projected.aura_range)
+     preview_ring.position = t.node.position+Vector3.UP*.10
+     preview_ring.scale = Vector3.ONE*projected.aura_range
+     preview_ring.show()
+ for t in towers:
+  t.support_marker.visible = covered.has(t) or added.has(t)
+  t.support_marker.material_override.albedo_color = Color("73ffcf") if covered.has(t) else Color("ffc46b")
+  for gun in t.guns:
+   if gun.has("arc"):
+    gun.arc.visible = selected >= 0 and selected < towers.size() and towers[selected] == t and build_type < 0
+    if gun.arc.visible:
+     var reach: float = effective_stats(t).range
+     gun.arc.scale = Vector3(reach,1,reach)
+
+func make_aim_arc() -> MeshInstance3D:
+ var node = MeshInstance3D.new()
+ var mesh = ImmediateMesh.new()
+ mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+ for index in range(32):
+  for angle in [-PI/2+PI*index/32.0,-PI/2+PI*(index+1)/32.0]: mesh.surface_add_vertex(Vector3(sin(angle),0,cos(angle)))
+ for side in [-1,1]:
+  mesh.surface_add_vertex(Vector3.ZERO)
+  mesh.surface_add_vertex(Vector3(side,0,0))
+ mesh.surface_end()
+ node.mesh = mesh
+ node.material_override = mat(Color("62ffc1"))
+ return node
+
+func steer_cryo_body(t: Dictionary, target_pos: Vector3, delta: float):
+ # Both projectors share a target and a hull heading; buffer the stop angle so
+ # targets near the traverse boundary do not make the satellite oscillate.
+ var correction = 0.0
+ var outside = false
+ for gun in t.guns:
+  var local: Vector3 = gun.yaw.get_parent().to_local(target_pos)
+  var angle = atan2(local.x,local.z)
+  outside = outside or absf(angle) > PI/2
+  var overflow = angle-clampf(angle,-PI/2+.20,PI/2-.20)
+  if absf(overflow) > absf(correction): correction = overflow
+ if outside: t.hull_turning = true
+ if absf(correction) < .006: t.hull_turning = false
+ var step = clampf(correction,-delta*1.8,delta*1.8) if t.hull_turning else 0.0
+ t.node.rotate_y(step)
+ t.node.basis = t.node.basis.orthonormalized().scaled(t.get("model_scale",Vector3.ONE))
+ t.aiming_status = "Rotating hull · thrusters" if absf(step) > .00001 else "Tracking within ±90°"
+ t.jet_clock -= delta
+ if absf(step) > .00001 and (t.jet_clock <= 0 or signf(step) != t.get("rcs_turn",0.0)):
+  t.jet_clock = .05
+  t.rcs_turn = signf(step)
+  var side = -signf(step)
+  var basis = t.node.global_basis.orthonormalized()
+  fx.jet(t.node.to_global(Vector3(side*1.08,.25,.68)),basis.x*side,Color("83ecff"),4)
+  fx.jet(t.node.to_global(Vector3(-side*1.08,.25,-.68)),-basis.x*side,Color("83ecff"),3)
+  play_cue("thruster")
+
+func cryo_can_fire(t: Dictionary, target_pos: Vector3) -> bool:
+ for gun in t.guns:
+  var local: Vector3 = gun.yaw.get_parent().to_local(target_pos)
+  if absf(atan2(local.x,local.z)) > PI/2+.00001: continue
+  var toward: Vector3 = (target_pos-gun.pitch.global_position).normalized()
+  if gun.pitch.global_basis.z.normalized().dot(toward) >= .96: return true
+ return false

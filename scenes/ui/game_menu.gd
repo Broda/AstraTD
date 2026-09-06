@@ -23,6 +23,7 @@ func close():
  page = ""
  for panel in game.hud_panels: panel.show()
  game.toast_label.show()
+ game.refresh_ui()
 
 func screen(title: String, subtitle: String, name: String):
  close()
@@ -67,7 +68,7 @@ func show_main():
  action("SAVE GAME",Vector2(66,y+144),Vector2(390,58),func(): show_slots(true),not game.can_save())
  action("SETTINGS",Vector2(66,y+216),Vector2(390,58),show_settings)
  action("QUIT",Vector2(66,y+288),Vector2(390,58),request_quit)
- var info = game.label_at(content,"MISSION BRIEF\n\nThree finite sectors, plus the original endless corridor.\nSix fleet roles and two exclusive upgrade branches each.\n\nWave starts stay under your control.\nSave between waves, then resume exactly where you left off.\n\nTab / Shift+Tab to navigate • Enter to select • Esc to go back",Vector2(565,264),20,Color("adbed5"))
+ var info = game.label_at(content,"MISSION BRIEF\n\nThree finite sectors, plus the original endless corridor.\nSix fleet roles with distinct three-tier specializations.\n\nWave starts stay under your control.\nSave between waves, then resume exactly where you left off.\n\nTab / Shift+Tab to navigate • Enter to select • Esc to go back",Vector2(565,264),20,Color("adbed5"))
  info.size = Vector2(770,360)
  info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
  focus_first()
@@ -164,6 +165,7 @@ func load_from(slot: int):
 func show_settings():
  screen("Settings","Changes apply immediately and persist across restarts.","settings")
  var mode = OptionButton.new()
+ mode.name = "DisplayMode"
  mode.position = Vector2(66,257)
  mode.size = Vector2(390,50)
  mode.add_item("Windowed")
@@ -189,6 +191,19 @@ func show_settings():
    game.settings[key] = value
    apply_audio_settings())
   content.add_child(toggle)
+ var intensity = OptionButton.new()
+ intensity.name = "EffectsIntensity"
+ intensity.position = Vector2(66,553)
+ intensity.size = Vector2(390,50)
+ intensity.add_item("Full effects")
+ intensity.add_item("Reduced effects")
+ intensity.select(1 if game.settings.get("effects_intensity","normal") == "reduced" else 0)
+ intensity.item_selected.connect(func(index):
+  game.settings.effects_intensity = "normal" if index == 0 else "reduced"
+  game.fx.reduced = index == 1
+  persist_settings())
+ content.add_child(intensity)
+ game.label_at(content,"COMBAT EFFECTS",Vector2(66,516),18)
  for i in range(3):
   var key = ["master_volume","music_volume","sfx_volume"][i]
   var title = ["MASTER","MUSIC","SFX"][i]

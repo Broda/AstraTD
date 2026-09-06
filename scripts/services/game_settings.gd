@@ -4,11 +4,13 @@ extends RefCounted
 const Storage = preload("res://scripts/services/run_storage.gd")
 
 static func defaults() -> Dictionary:
-	return {"fullscreen": false, "window_size": [1440, 900], "music_enabled": true, "sfx_enabled": true, "master_volume": 0.8, "music_volume": 0.45, "sfx_volume": 0.7}
+	return {"effects_intensity": "normal", "fullscreen": false, "window_size": [1440, 900], "music_enabled": true, "sfx_enabled": true, "master_volume": 0.8, "music_volume": 0.45, "sfx_volume": 0.7}
 
 static func load_settings() -> Dictionary:
 	var result := Storage.read_document(Storage.storage_root.path_join("settings.json"), "settings")
-	return result.data if result.ok else defaults()
+	var values := defaults()
+	if result.ok: values.merge(result.data,true)
+	return values
 
 static func save_settings(settings: Dictionary) -> Dictionary:
 	return Storage.write_document(Storage.storage_root.path_join("settings.json"), "settings", settings)
