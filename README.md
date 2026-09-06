@@ -1,52 +1,110 @@
 # Wormhole Wardens
 
-A 3D space tower defense game built with Godot 4.7 and GDScript. All ships and stations were modeled and exported using Blender.
+A 3D space tower defense game built with Godot 4.7 and GDScript, with original Blender models and procedural audio. Defend three finite sectors or replay the original endless corridor with six fleet roles, branching upgrades, persistent saves, and map completion progress.
 
-## Play
+![A deployed fleet defending a wormhole](preview.png)
 
-Double-click `Launch.cmd` on this machine. Alternatively, import `project.godot` in Godot and press F6 or F5.
+## Play and controls
 
-- Choose a tower in the right panel, or press **1–4**. Click the map to deploy. Keep clicking to place more of the same type.
-- The range ring turns green for valid locations and red where placement is blocked. Ships cannot overlap the wormhole or each other.
-- **Right-click / Escape** cancels construction. Click an existing tower to inspect, upgrade, or salvage it.
-- Each tower offers **two exclusive specializations**, with **three upgrade tiers** along the chosen branch.
-- Click **Next Wave** when ready. Waves never start automatically.
-- Each kill earns credits. Clearing a wave pays a completion reward, plus **45 + 10 × wave** credits if you bought no towers or upgrades during that wave. Purchases between waves do not affect the bonus. Salvaging does not forfeit it.
-- Escaped raiders damage the core; dreadnoughts deal four damage. Restart when core integrity reaches zero.
+Double-click `Launch.cmd` on this machine, or import `project.godot` in Godot and run the project. The launcher imports assets before starting and uses its configured Godot installation path; update `WARDENS_GODOT` in `Launch.cmd` for another installation.
+
+Start with **New Game**, choose a sector, and deploy your fleet during preparation. **Load Game**, **Settings**, and **Quit** are available from the main menu. A current run also enables **Continue / Resume** and, between waves, **Save Game**.
+
+- Press **1–6** or select a fleet button, then click the map to deploy. Keep clicking to place more of the same type.
+- A green range ring marks a valid position; red means blocked or unaffordable. Towers cannot overlap any wormhole route, another tower, or the map boundary.
+- **Right-click** cancels construction. **Escape** first cancels construction; otherwise it pauses gameplay or goes back through menus. **P** also opens pause during gameplay. Choose **Resume** or press **Escape** from the pause menu to continue.
+- Click an existing tower to inspect, upgrade, or salvage it. Each tower has two exclusive branches with three tiers. Upgrade nodes show **PURCHASED**, **LOCKED**, **NEED CREDITS**, or the available cost. Hover a node or focus it with the keyboard to inspect its effect and stat comparison.
+- Select the labeled **1×**, **2×**, or **3×** HUD buttons to change simulation speed. Pausing freezes movement, spawning, weapons, damage, rewards, and gameplay effects, and blocks fleet purchases, upgrades, salvage, and wave starts. Resume retains the selected speed; music pitch stays unchanged.
+- **Tab / Shift+Tab** moves keyboard focus; **Enter** selects a focused action. Menus provide visible focus and consistent Back/Escape navigation.
+
+**Next Wave** always stays under player control. Preparation previews the next formation, boss warnings, completion credits, and no-purchase bonus. Kill rewards are immediate; clearing a wave grants its configured completion reward and a bonus if no tower or upgrade was purchased during that wave. Purchases between waves preserve the next bonus; salvage does not forfeit it. Outer Rim retains the original bonus formula, `45 + 10 × wave`.
+
+The HUD shows current/final wave, credits, kills, and surviving core integrity. Finite maps end in victory only after their last wave has finished spawning and every enemy is resolved with the core surviving. A lost core ends the run immediately. Results show map, difficulty, completed waves, kills, and core integrity, with Replay, Map Selection, and Main Menu actions. Completed maps receive a persistent badge.
+
+## Sectors
+
+| Map | Difficulty | Waves | Starting credits | Core | Layout |
+| --- | --- | ---: | ---: | ---: | --- |
+| Aurora Reach | Easy | 8 | 520 | 25 | Broad winding bends with generous shared coverage |
+| Cobalt Bend | Normal | 10 | 460 | 20 | Alternating turns and compact firing windows |
+| Twin Rift | Hard | 12 | 420 | 16 | Two approaches converging on one core |
+| Outer Rim | Endless | Unlimited | 440 | 20 | The original corridor and classic scaling rules |
+
+Finite formations introduce fast, armored, shielded, and regenerating ships before combining them into dense milestone waves. Shields absorb damage before hull; armor reduces individual hits; regenerators repair surviving hulls. Cryogenic slowing uses the strongest active slow, with resistance on tougher enemies. Dreadnoughts deal four core damage. Railguns counter armor, while concentrated fire helps overcome shields and repairs. Outer Rim preserves its original enemy and economy behavior.
+
+![Sector selection](docs/screenshots/maps.png)
 
 ## Fleet
 
-| Tower | Cost | Weapon | Base range | Specializations |
-| --- | ---: | --- | ---: | --- |
-| Lancer | 100 | Rapid single-target laser | 5.1 | Damage / range |
-| Bastion | 170 | Explosive missile strike, 1.5 splash radius | 6.4 | Damage / fire rate |
-| Nova | 210 | Four independently targeted guns | 3.8 | Pulse Generator / long-range guns |
-| Cryostat | 140 | Low-damage beam slows enemies for 2 seconds | 4.6 | Stronger slow / fire rate |
+Damage and cooldown are base values before upgrades, nearby support, shields, or armor. Nova's damage is per independently aimed gun; Relay's two mounts share one hit.
 
-Enemy count, health, and speed increase each wave. Fast ships arrive from wave 2, armored ships from wave 3, and a dreadnought every fifth wave. Survival is endless.
+| Key | Tower | Cost | Damage | Range | Cooldown | Role and branches |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| 1 | Lancer | 100 | 14 | 5.1 | 0.48 s | Rapid laser; Overcharged beams / Long-range optics |
+| 2 | Bastion | 170 | 42 | 6.4 | 1.65 s | Missile with 1.5 splash radius; Heavy warheads / Rapid launchers |
+| 3 | Nova | 210 | 19 per gun | 3.8 | 1.05 s | Four independent guns; Pulse Generator / Long-range guns |
+| 4 | Cryostat | 140 | 5 | 4.6 | 0.70 s | Beam slows for two seconds; Deep freeze / Combat coolant |
+| 5 | Railgun | 300 | 118 | 8.2 | 2.35 s | Long-range armor piercing; Kinetic accelerator / Targeting array |
+| 6 | Relay | 190 | 7 | 5.6 | 1.10 s | Nearby damage +18%; Power amplification / Extended relay |
 
-## Project and checks
+Only the strongest nearby Relay aura applies to another tower; multiple auras never add or multiply. Its amplification branch increases the bonus, while its extended branch increases both coverage and the bonus.
 
-`main.gd` contains gameplay and UI. `wormhole.gdshader` animates the lane, and `nebula.gdshader` draws the procedural background. `space_fx.gd` renders a bounded particle pool for maneuvering jets, engine trails, impact sparks, and spiraling implosions. `assets/` contains GLB models and purchase icons; `source/` contains editable Blender files, their generator, and the Blender icon renderer.
+Nova's guns keep separate enemy locks, spreading across up to four targets in range. Spare guns share a target when fewer enemies are available; lost or out-of-range targets are replaced automatically. Each aligned gun deals its own damage on the shared cooldown. A newly built Nova has no area attack.
 
-All five units have complete three-dimensional hulls and undersides. Materials use embedded base-color, roughness, and normal textures, with separate metallic armor, cockpit glazing, emissive reactors, and radiator cells. The editable PNG texture maps are in `assets/textures/`; source `.blend` files pack those maps for portability. Exported static parts are batched by material.
+The first **Pulse Generator** upgrade costs 147 credits and unlocks an additional area pulse without increasing gun damage. Later Pulse Generator tiers increase gun and pulse damage by 65% and range by 0.25. The exclusive Long-range guns branch increases gun range and damage but never unlocks the pulse. Buying the pulse during combat forfeits that wave's no-purchase bonus like any other upgrade.
 
-Nova mounts four independent twin-barrel turrets (`nova_gun.glb`); Cryostat mounts two coil projectors (`cryo_gun.glb`). Gun assemblies attach to `GunSocket_*` nodes on the fixed station bodies. Each has a yawing head, a `BarrelPivot` for elevation and recoil, and `Muzzle_*` nodes from which its firing effects originate. The station bodies do not turn to aim.
+## Saves and settings
 
-Nova's guns maintain separate enemy locks, spreading across up to four enemies in range. Spare guns share a target when fewer enemies are available; lost or out-of-range targets are replaced automatically. Each aligned gun deals its listed damage to its own target on the shared firing cooldown. A newly built Nova has no area attack.
+Saving is available **only during preparation between waves**, including from the pause menu or main menu while a preparation run remains in memory. Combat saves are clearly disabled. Three slots show map, difficulty, completed wave, and UTC timestamp. Overwriting or deleting a slot requires confirmation; starting another run, loading another save, or quitting asks before discarding unsaved progress. Returning to the main menu keeps the current run available to resume.
 
-The first **Pulse Generator** upgrade unlocks an additional area pulse on each firing cycle, dealing the listed damage once to every enemy in range. It costs 147 credits and does not increase gun damage on unlock. Subsequent tiers increase gun and pulse damage by 65% and range by 0.25. The exclusive **Long-range guns** branch increases gun range and damage but never unlocks the pulse. Buying the pulse during a wave forfeits the no-purchase bonus like other upgrades.
+Versioned saves live under Godot's `user://wardens/` directory. They retain map, economy, kills, core, speed, tower positions, stable tower/branch IDs, and purchased tiers, including Nova's pulse unlock. Loading reconstructs the fleet without duplicate charges or rewards. Writes use a verified temporary file and retain the previous valid `.bak` recovery copy. Corrupt or incompatible saves show an error while preserving the live run; recoverable slots identify their recovery copy. Map completion and global settings are separate from run slots.
 
-The Lancer turns smoothly using opposing bow/stern thrusters. Its jets emit from the side opposite the required force. Enemy hits release sparks; destroyed ships collapse inward. Purchase buttons use renders of the actual ships and individual upgrade symbols.
+Settings are available from both main and pause menus. **Fullscreen / Windowed** is a mutually exclusive choice that applies immediately and remembers a usable window size. **Music** and **SFX** have independent enable toggles; **Master**, **Music**, and **SFX** have separate percentage sliders. Changes persist across restarts and apply before playback. **Restore Defaults** restores windowed 1440 × 900, both audio categories enabled, and volumes of 80% Master, 45% Music, and 70% SFX. The UI uses a 1440 × 900 design viewport and preserves its aspect ratio when resized.
 
-To regenerate assets, run Blender in background mode with `--python source/build_models.py` (the entry point for `build_detailed_models.py`), then `--python source/render_fleet_icons.py` to render the purchase icons and model gallery. The renderer preserves the exported game materials. `model_previews/fleet_gallery.png` and `model_previews/nova_side.png` show the assembled models and underside structure.
+Original menu and gameplay instrumentals loop seamlessly and crossfade between contexts. Separate weapon, impact, engine, fleet, UI, wave, reward, core, victory, and defeat cues use bounded voice counts and repeat limits. Music continues while paused; existing effects stop, combat cues remain blocked, and menu feedback stays available.
 
-Run Godot with `--headless --path . -- --smoke-test` for economy and placement assertions, `--headless --path . -- --combat-test` for five-wave combat and game-over checks, or `--headless --path . -- --vfx-test` to verify thrust direction, impact effects, inward collapse, and particle cleanup. `-- --capture` creates a staged gameplay screenshot and exits.
+![Display and audio settings](docs/screenshots/settings.png)
 
-`--headless --path . -- --station-test` verifies separate gun attachments, barrel alignment in yaw and elevation, stationary station bodies, and firing from weapon muzzles.
+## Models, effects, and regeneration
 
-`--headless --path . -- --nova-target-test` checks distinct stable locks, independent aiming and beams, damage balance, target replacement, and upgraded range.
+Ships and stations have complete three-dimensional hulls and undersides. Materials embed base-color, roughness, and normal textures, with metallic armor, cockpit glazing, emissive reactors, and radiator cells. Editable PNG maps are in `assets/textures/`; `.blend` sources pack their maps for portability. Exported static parts are batched by material.
 
-`--headless --path . -- --nova-pulse-test` checks the guns-only default, paid pulse unlock, additional area damage, exclusive branches, range limits, and the wave savings rule.
+Nova mounts four independent twin-barrel turrets, Cryostat mounts two coil projectors, and Relay mounts two defense guns. Assemblies attach to `GunSocket_*` nodes on fixed station bodies, with yawing heads, `BarrelPivot` elevation/recoil, and `Muzzle_*` firing origins. Station bodies stay fixed while their guns aim.
 
-This first playable version has one map and session-only progress. The local launcher requires the Godot installation path shown above; the project itself can be opened on other machines with Godot 4.x.
+The Lancer turns using opposing bow/stern thrusters, with jets on the side opposite the required force. Hits emit sparks; destroyed ships collapse inward. `space_fx.gd` maintains a bounded particle pool for maneuvering jets, engine trails, impacts, and implosions. Purchase icons render the actual assembled models.
+
+From the repository root, regenerate the original fleet first, then expansion models and icons. Blender is required only to regenerate model assets; Python's standard library is sufficient for audio.
+
+```text
+blender --background --python source/build_models.py
+blender --background --python source/render_fleet_icons.py
+blender --background --python source/build_expansion_models.py
+blender --background --python source/render_expansion_icons.py
+python source/generate_audio.py
+```
+
+`build_models.py` delegates to `build_detailed_models.py`. Renderers preserve game materials. `model_previews/fleet_gallery.png`, `nova_side.png`, `expansion_gallery.png`, `expansion_relay_side.png`, and `expansion_railgun_underside.png` document assembled models and underside detail. Models, textures, icons, and generated audio are original project assets with no external sample or stock-asset attribution requirements.
+
+## Checks and project structure
+
+Run the automated suite from PowerShell:
+
+```powershell
+.\tests\run_checks.ps1
+# Optional: select a different Godot console executable.
+.\tests\run_checks.ps1 -Godot 'C:\path\to\Godot_console.exe'
+# Also render all screens and verify settings across three application launches.
+.\tests\run_checks.ps1 -CaptureUI
+```
+
+The checks cover content definitions and legacy parity, placement/economy, combat and end states, station mounts, thrusters and effects, independent Nova locks and pulse unlocks, preparation saves and corruption recovery, settings/audio, menu confirmations, and integrated session flow. Save tests use isolated temporary storage instead of player slots.
+
+Individual gameplay checks use `Godot --headless --path . -- --smoke-test`, replacing the final flag with `--combat-test`, `--vfx-test`, `--station-test`, `--nova-target-test`, `--nova-pulse-test`, `--integration-test`, or `--menu-test`. Standalone checks use `--script tests/content_data_test.gd` or `--script tests/storage_test.gd`.
+
+`--balance-test` runs automated campaign strategies against legal budgets and placement. `--performance-test` exercises a bounded dense-combat workload; run it with rendering enabled when assessing frame timing. These checks support tuning and regression detection; see the balance and performance reports for their workloads and limitations.
+
+Run `Godot --path . -- --capture` to refresh `preview.png`. Run `Godot --path . -- --ui-capture` with a display to capture menus, gameplay, pause, results, and fullscreen under `work/ui_*.png`. The published map/settings examples above are stored in `docs/screenshots/`.
+
+`game_data.gd` defines stable maps, waves, enemies, towers, and upgrades. `main.gd` manages simulation and session flow; `game_menu.gd` builds navigation; `run_storage.gd`, `game_settings.gd`, and `game_audio.gd` handle persistence and audio. `wormhole.gdshader` and `nebula.gdshader` draw the lane and backgrounds.
+
+Further details: [Content and rules](docs/CONTENT.md), [Persistence](docs/PERSISTENCE.md), [Audio](docs/AUDIO.md), [Fleet assets](docs/ASSETS.md), [Balance](docs/BALANCE.md), and [Performance](docs/PERFORMANCE.md), and [Acceptance evidence](docs/ACCEPTANCE.md).
