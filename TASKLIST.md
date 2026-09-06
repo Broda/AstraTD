@@ -6,7 +6,7 @@
 - [ ] Add a Nova drone-launch upgrade. Drones swarm around the enemies they are attacking within Nova's range; each additional upgrade tier adds another drone.
 - [ ] Limit Cryostat gun rotation to ±90° relative to its mounts. When aiming requires more rotation, turn the whole satellite using thrusters like the Lancer.
 - [ ] Make Relay a support-only station: remove its offensive attacks and have it improve only fleet units within its range.
-- [ ] Redesign Relay upgrade trees to improve nearby fleet units with increased damage speed, increased range, and increased rate of fire. Clarify what “damage speed” means and how it differs from rate of fire before implementation.
+- [ ] Redesign Relay upgrade trees to improve nearby fleet units with increased damage, increased range, and increased rate of fire.
 - [ ] Research Bloons TD for gameplay ideas and improvements applicable to this game, and turn the findings into prioritized proposals.
 
 ## Completed
