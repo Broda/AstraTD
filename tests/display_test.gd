@@ -2,8 +2,8 @@ extends SceneTree
 ## Three independent rendered processes verify persisted display/audio settings.
 ## Run --script tests/display_test.gd -- --display-phase=write, then read, then windowed.
 
-const Storage = preload("res://run_storage.gd")
-const Settings = preload("res://game_settings.gd")
+const Storage = preload("res://scripts/services/run_storage.gd")
+const Settings = preload("res://scripts/services/game_settings.gd")
 const TEST_ROOT = "user://display_acceptance"
 const REQUESTED_SIZE = Vector2i(1280, 800)
 
@@ -99,7 +99,7 @@ func write_phase():
 
 
 func start_production_runtime(expected: Dictionary):
-	runtime = load("res://main.tscn").instantiate()
+	runtime = load("res://scenes/gameplay/main.tscn").instantiate()
 	root.add_child(runtime)
 	await create_timer(.2).timeout
 	expect(not runtime.testing, "Display phase arguments must exercise the production startup path")

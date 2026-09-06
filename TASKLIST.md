@@ -57,6 +57,7 @@ P0 covers the first delivery sequence and its supporting requirements; P1 deepen
 
 ## Completed
 
+- **2026-09-06 — Project organization:** grouped scenes and their scripts, shared logic, runtime assets, Blender sources, tools, and documentation. Preserved resource IDs and save compatibility; the complete suite passed from a cache-free copy, with rendered UI and checkout startup/performance checks. See the [structure and verification guide](docs/PROJECT_STRUCTURE.md).
 - **2026-09-06 — Bloons TD research:** reviewed the latest confirmed BTD6 PC/mobile release (56.3), recent official design changes, and AstraTD gaps. See the [24 prioritized improvement proposals](docs/BLOONS_TD_RESEARCH.md), including upgrade UI, Nova drones, Cryostat aiming, and support-only Relay.
 - **2026-09-06 — Game expansion:** finite maps, expanded fleets and enemies, upgrades, menus, pause and speed controls, preparation saves, persistent progress, settings, and audio. See the [acceptance report](docs/ACCEPTANCE.md) for scope and verification, and the [README](README.md) for current features and controls.
 - **2026-09-06 — Upgrade model size:** fleet models retain their original size when upgraded or restored from saves. Integration, station, and Nova pulse checks passed.

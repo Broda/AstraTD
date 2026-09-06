@@ -1,7 +1,7 @@
 extends RefCounted
 ## Bounded stress workload, not an economy or campaign-balance simulation.
 
-const Data = preload("res://game_data.gd")
+const Data = preload("res://scripts/data/game_data.gd")
 const WARMUP_FRAMES = 60
 const MEASURED_FRAMES = 180
 const TOWER_COUNT = 30

@@ -1,8 +1,8 @@
 # Original game audio
 
-All audio in `assets/audio/` is synthesized specifically for Wormhole Wardens by `source/generate_audio.py`. It uses mathematical oscillators, envelopes, and deterministically seeded noise, with original note sequences. There are no external recordings, samples, soundfonts, tracks, or compositions. No third-party license or attribution is required; these generated assets belong to the project alongside their generator source.
+All audio in `assets/audio/` is synthesized specifically for Wormhole Wardens by `tools/asset_pipeline/generate_audio.py`. It uses mathematical oscillators, envelopes, and deterministically seeded noise, with original note sequences. There are no external recordings, samples, soundfonts, tracks, or compositions. No third-party license or attribution is required; these generated assets belong to the project alongside their generator source.
 
-Regenerate with Python 3: `python source/generate_audio.py`. The script uses only the standard library and produces 22.05 kHz, 16-bit mono WAV files.
+Regenerate with Python 3: `python tools/asset_pipeline/generate_audio.py`. The script uses only the standard library and produces 22.05 kHz, 16-bit mono WAV files.
 
 | Assets | Purpose |
 | --- | --- |

@@ -1,8 +1,8 @@
 extends RefCounted
 ## UI signal regression: run through main.gd with --headless -- --menu-test.
-const Storage = preload("res://run_storage.gd")
-const Settings = preload("res://game_settings.gd")
-const Data = preload("res://game_data.gd")
+const Storage = preload("res://scripts/services/run_storage.gd")
+const Settings = preload("res://scripts/services/game_settings.gd")
+const Data = preload("res://scripts/data/game_data.gd")
 var game: Node
 var failures := 0
 

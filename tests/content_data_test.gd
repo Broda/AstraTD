@@ -1,6 +1,6 @@
 extends SceneTree
 
-const Data = preload("res://game_data.gd")
+const Data = preload("res://scripts/data/game_data.gd")
 var failures: Array = []
 var checks = 0
 

@@ -1,7 +1,7 @@
 extends RefCounted
 ## Uses only legal placement, normal purchases, earned credits and combat damage.
 
-const Data = preload("res://game_data.gd")
+const Data = preload("res://scripts/data/game_data.gd")
 const MAP_IDS = ["aurora_reach","cobalt_bend","twin_rift"]
 var candidates: Array = []
 var route_samples: Array = []

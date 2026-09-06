@@ -29,7 +29,7 @@ Priority meanings: **P0** = first delivery sequence or a requirement accompanyin
 
 **P0 | M | Highest immediate usability value**
 
-Current state: the sidebar presents six small A/B tier buttons. Names and effects rely heavily on tooltips. See `main.gd:298`, `main.gd:313`, and `main.gd:824`.
+Current state: the sidebar presents six small A/B tier buttons. Names and effects rely heavily on tooltips. See `scenes/gameplay/main.gd:298`, `scenes/gameplay/main.gd:313`, and `scenes/gameplay/main.gd:824`.
 
 Proposal:
 
@@ -47,7 +47,7 @@ Basis: BTD6's named paths and deliberate mechanical identities support this desi
 
 **P0 | M | Fix alongside R01**
 
-Current state: selected damage omits Relay's combat multiplier. Tooltips apply each node's effect to current stats, so purchased tiers can imply another increase and future tiers can omit prerequisites. See `main.gd:816`, `main.gd:829`, and `main.gd:691`.
+Current state: selected damage omits Relay's combat multiplier. Tooltips apply each node's effect to current stats, so purchased tiers can imply another increase and future tiers can omit prerequisites. See `scenes/gameplay/main.gd:816`, `scenes/gameplay/main.gd:829`, and `scenes/gameplay/main.gd:691`.
 
 Proposal: show current -> after purchase values, applying prerequisites in order. Separate base values from support bonuses. Present damage per hit, attacks per second, effective range, target count, armor interaction, slow duration, and drone count when relevant. For Nova, identify gun, pulse, and drone damage separately rather than implying every displayed value is one combined hit.
 
@@ -59,7 +59,7 @@ Success: every shown purchase result agrees with actual combat values; purchased
 
 **P0 | M/L | Shared foundation for Relay and Nova**
 
-Current state: every unit has two exclusive branches with three tiers. Many tiers repeat damage/range multipliers. Nova's paid pulse unlock already demonstrates a more distinct upgrade. See `game_data.gd:161` and `main.gd:445`.
+Current state: every unit has two exclusive branches with three tiers. Many tiers repeat damage/range multipliers. Nova's paid pulse unlock already demonstrates a more distinct upgrade. See `scripts/data/game_data.gd:161` and `scenes/gameplay/main.gd:445`.
 
 Proposal: retain short three-tier paths initially. Use a progression such as unlock a behavior -> improve that behavior -> specialize it. Support a variable number of named paths so Relay can offer the requested three buff types and Nova can gain a third drone path alongside its existing gun and pulse choices.
 
@@ -71,7 +71,7 @@ Success: each path answers a different tactical problem and retains a weakness. 
 
 **P0 | L | Explicit existing request**
 
-Current state: Relay fires weak attacks and supplies only a damage aura; one branch also extends its own coverage. It cannot currently improve recipients' range or firing frequency. See `game_data.gd:10`, `game_data.gd:166`, and `main.gd:1230`.
+Current state: Relay fires weak attacks and supplies only a damage aura; one branch also extends its own coverage. It cannot currently improve recipients' range or firing frequency. See `scripts/data/game_data.gd:10`, `scripts/data/game_data.gd:166`, and `scenes/gameplay/main.gd:1230`.
 
 Proposed path themes:
 
@@ -115,7 +115,7 @@ Basis: BTD6's recent carrier adjustments emphasize reliable flight/attack behavi
 
 **P0 | M | Explicit existing request**
 
-Current state: Cryostat's body stays stationary while its guns can yaw without the requested limit. See `main.gd:609`, `main.gd:620`, and `main.gd:653`.
+Current state: Cryostat's body stays stationary while its guns can yaw without the requested limit. See `scenes/gameplay/main.gd:609`, `scenes/gameplay/main.gd:620`, and `scenes/gameplay/main.gd:653`.
 
 Proposal: clamp each mount to +/-90 degrees in its local frame. When a useful target needs more rotation, turn the whole satellite with visible opposing thrusters using Lancer's existing convention. Coordinate body and gun movement smoothly, with a small tolerance around the limit to prevent repeated left-right corrections. Define how two guns choose a shared body heading when their targets differ.
 
@@ -127,7 +127,7 @@ Success: no rearward shot bypasses the limit; the body visibly rotates when need
 
 **P1 | M | Deliver with the selected-unit panel where practical**
 
-Current state: ordinary targeting uses greatest traveled route distance; Nova preserves independent locks. Current Twin Rift routes are mirrored, so this research does not establish a current unequal-route ordering bug. See `main.gd:587` and `main.gd:632`.
+Current state: ordinary targeting uses greatest traveled route distance; Nova preserves independent locks. Current Twin Rift routes are mirrored, so this research does not establish a current unequal-route ordering bug. See `scenes/gameplay/main.gd:587` and `scenes/gameplay/main.gd:632`.
 
 Proposal: offer Closest to Core, Strongest, Nearest, and Last where meaningful. Use remaining route distance for Closest to Core so future asymmetric routes behave consistently. Define Strongest visibly, for example highest remaining hull plus shields; keep armor priority a separate explicit option if introduced.
 
@@ -139,7 +139,7 @@ Success: the selected target and current priority are clear, and ordinary succes
 
 **P1 | M**
 
-Current state: the enemy bar width tracks hull while its color changes for shields; it can remain full as shielding depletes. Armor, regeneration, and slowing have limited active-state communication. See `main.gd:576`.
+Current state: the enemy bar width tracks hull while its color changes for shields; it can remain full as shielding depletes. Armor, regeneration, and slowing have limited active-state communication. See `scenes/gameplay/main.gd:576`.
 
 Proposal: use separate shield and hull indicators, plus compact icons for armor, slowing, regeneration, and resistance. Show slow duration on selection, a clear shield-break event, and a readable repair pulse. Pair color with shapes or labels. Put enemy counterplay text already present in the data into a small inspectable reference panel.
 
@@ -149,7 +149,7 @@ Success: players can tell whether shots are removing shield or hull and why a sl
 
 **P1 | M**
 
-Current state: exact enemy counts, boss warnings, completion rewards, and no-purchase bonuses already exist. See `main.gd:1219`.
+Current state: exact enemy counts, boss warnings, completion rewards, and no-purchase bonuses already exist. See `scenes/gameplay/main.gd:1219`.
 
 Proposal: add enemy portraits, defense symbols, entry-lane markers, and a compact ordered formation preview. Introduce an enemy's counter before its first appearance. Highlight which routes a selected ship can cover. Present the no-purchase bonus as a clear preparation-versus-emergency-spending choice; show the bonus that a combat purchase would forfeit.
 
@@ -173,7 +173,7 @@ Proposal: track hull/shield damage, kills, firing uptime, escaped enemy types, s
 
 Credit only the measured incremental damage to support, and label estimates explicitly. Extra attacks caused by rate buffs and extra time in range are more difficult to attribute than per-hit damage; avoid claiming exact counterfactual contribution without a defensible method.
 
-Success: the end-wave report can explain a loss using recorded facts and can compare a support investment with an extra weapon. Extend current run-wide tracking without creating a wall of mandatory statistics. See `main.gd:747`, `game_menu.gd:229`, and `docs/BALANCE.md`.
+Success: the end-wave report can explain a loss using recorded facts and can compare a support investment with an extra weapon. Extend current run-wide tracking without creating a wall of mandatory statistics. See `scenes/gameplay/main.gd:747`, `scenes/ui/game_menu.gd:229`, and `docs/BALANCE.md`.
 
 ### R13 - Add Retry Wave using the preparation checkpoint
 

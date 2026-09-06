@@ -34,7 +34,7 @@ Verified on 2026-09-06 with Godot 4.7.2, Windows, and the Compatibility renderer
 
 The first command imports assets and runs all automated headless checks. `-CaptureUI` also requires a display and captures the screens before running the ordered `write`, `read`, and `windowed` display phases in separate processes. Logs go under ignored `work/checks/`. Save tests use isolated test directories and do not alter player slots or completion progress.
 
-The production gameplay screenshot is `preview.png`; map/settings screenshots are in `docs/screenshots/`. The remaining reproducible UI captures are written to `work/ui_*.png`. Detailed model and audio generation instructions are in the README and asset documents.
+The production gameplay screenshot is `docs/screenshots/gameplay.png`; map/settings screenshots are in `docs/screenshots/`. The remaining reproducible UI captures are written to `work/ui_*.png`. Detailed model and audio generation instructions are in the README and asset documents.
 
 ## Limits
 

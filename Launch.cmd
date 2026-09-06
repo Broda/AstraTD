@@ -4,6 +4,7 @@ cd /d "%~dp0"
 set "WARDENS_GODOT=C:\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64"
 if not exist "%WARDENS_GODOT%_console.exe" goto missing_engine
 if not exist "work" mkdir "work"
+if not exist "work\.gdignore" type nul > "work\.gdignore"
 echo Preparing Wormhole Wardens assets...
 "%WARDENS_GODOT%_console.exe" --headless --editor --import --path "." --quit > "work\import.log" 2>&1
 if errorlevel 1 goto import_failed

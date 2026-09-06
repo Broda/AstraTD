@@ -1,8 +1,8 @@
 extends RefCounted
 ## Invoked by main.gd with --integration-test. All persistent writes are isolated.
 
-const Data = preload("res://game_data.gd")
-const Storage = preload("res://run_storage.gd")
+const Data = preload("res://scripts/data/game_data.gd")
+const Storage = preload("res://scripts/services/run_storage.gd")
 
 var game: Node
 var checks = 0

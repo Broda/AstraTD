@@ -1,8 +1,8 @@
 extends SceneTree
 
-const Storage = preload("res://run_storage.gd")
-const Settings = preload("res://game_settings.gd")
-const Audio = preload("res://game_audio.gd")
+const Storage = preload("res://scripts/services/run_storage.gd")
+const Settings = preload("res://scripts/services/game_settings.gd")
+const Audio = preload("res://scripts/services/game_audio.gd")
 var failures := 0
 
 func _initialize() -> void:

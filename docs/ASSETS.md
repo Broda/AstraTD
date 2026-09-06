@@ -10,10 +10,10 @@ Blender is a production tool, not a bundled runtime dependency.
 Run from the repository root with Blender 5.2 or a compatible version:
 
 ```text
-blender --background --python source/build_models.py
-blender --background --python source/render_fleet_icons.py
-blender --background --python source/build_expansion_models.py
-blender --background --python source/render_expansion_icons.py
+blender --background --python tools/asset_pipeline/build_models.py
+blender --background --python tools/asset_pipeline/render_fleet_icons.py
+blender --background --python tools/asset_pipeline/build_expansion_models.py
+blender --background --python tools/asset_pipeline/render_expansion_icons.py
 ```
 
 The original fleet generator creates the shared PBR maps in `assets/textures/`.
@@ -24,7 +24,7 @@ individual armor plates, hull sections, engines, and weapon parts. Exports batch
 static meshes by material and parent to limit draw calls while preserving weapon
 articulation and effect anchors.
 
-`WARDENS_ASSETS` can redirect the expansion GLB output. `WARDENS_RENDER_SAMPLES`
+`WARDENS_ASSETS` redirects the asset root for GLB output: models are written under `models/<model_id>/<model_id>.glb` inside that root. Editable sources are in `art/models/`; the default runtime model root is `assets/models/`. `WARDENS_RENDER_SAMPLES`
 can change the expansion renderer's sample count (40 by default). Render scripts
 assemble and light source copies without modifying the game models or materials.
 
@@ -63,11 +63,11 @@ and pivoted surfaces even when their materials match.
   purchase renders of the actual models, with the relay guns assembled.
 - `assets/icons/shielded.png` and `assets/icons/regenerator.png`: matching enemy
   preview icons; `assets/icons/relay_gun.png` shows the independent gun.
-- `model_previews/expansion_gallery.png`: labeled fleet and enemy gallery.
-- `model_previews/expansion_relay_side.png`: low view of the station's separate
+- `docs/model_previews/expansion_gallery.png`: labeled fleet and enemy gallery.
+- `docs/model_previews/expansion_relay_side.png`: low view of the station's separate
   gun mounts, fixed dish, lower service drum, and underside braces.
-- `model_previews/expansion_railgun_underside.png`: bottom view of the complete
+- `docs/model_previews/expansion_railgun_underside.png`: bottom view of the complete
   armored keel, pressure hull, accelerator, and engine nacelles.
 
-The original fleet review images remain in `model_previews/fleet_gallery.png`
-and `model_previews/nova_side.png`.
+The original fleet review images remain in `docs/model_previews/fleet_gallery.png`
+and `docs/model_previews/nova_side.png`.

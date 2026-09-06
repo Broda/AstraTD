@@ -7,6 +7,8 @@ $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 $taskLogs = Join-Path $taskRoot 'work/checks'
 New-Item -ItemType Directory -Force -Path $taskLogs | Out-Null
+# Generated captures, logs, and scratch scripts must not become game resources.
+[System.IO.File]::WriteAllText((Join-Path $taskRoot 'work/.gdignore'), '')
 if (-not $Godot) {
     $taskEngine = Get-Command godot -ErrorAction SilentlyContinue
     if ($taskEngine) { $Godot = $taskEngine.Source }

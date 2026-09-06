@@ -1,6 +1,6 @@
 # Game content and balance
 
-`game_data.gd` owns immutable map, formation, enemy, tower, and upgrade definitions. Runtime gameplay receives independent dictionaries from its lookup functions. Save files refer to map, tower, and upgrade branch string IDs; array indices only support the existing keyboard/UI ordering.
+`scripts/data/game_data.gd` owns immutable map, formation, enemy, tower, and upgrade definitions. Runtime gameplay receives independent dictionaries from its lookup functions. Save files refer to map, tower, and upgrade branch string IDs; array indices only support the existing keyboard/UI ordering.
 
 ## Initial map lineup
 

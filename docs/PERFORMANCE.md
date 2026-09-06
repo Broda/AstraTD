@@ -31,7 +31,7 @@ clears its workload before exiting.
   outside the measured simulation call.
 - Normal gameplay movement, target selection, independent gun aiming, damage,
   shields, regeneration, slowing, support auras, muzzle effects, particles, and
-  firing/impact SFX run through `main.gd`'s `_process` and its usual helpers.
+  firing/impact SFX run through `scenes/gameplay/main.gd`'s `_process` and its usual helpers.
 - **60 warmup frames**, then **180 measured frames**, each with a fixed `1/60`
   second simulation step. The test yields each frame to service audio and dispose
   queued effect nodes. Every role fires during the workload.

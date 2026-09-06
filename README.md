@@ -2,7 +2,7 @@
 
 A 3D space tower defense game built with Godot 4.7 and GDScript, with original Blender models and procedural audio. Defend three finite sectors or replay the original endless corridor with six fleet roles, branching upgrades, persistent saves, and map completion progress.
 
-![A deployed fleet defending a wormhole](preview.png)
+![A deployed fleet defending a wormhole](docs/screenshots/gameplay.png)
 
 ## Play and controls
 
@@ -71,21 +71,23 @@ Ships and stations have complete three-dimensional hulls and undersides. Materia
 
 Nova mounts four independent twin-barrel turrets, Cryostat mounts two coil projectors, and Relay mounts two defense guns. Assemblies attach to `GunSocket_*` nodes on fixed station bodies, with yawing heads, `BarrelPivot` elevation/recoil, and `Muzzle_*` firing origins. Station bodies stay fixed while their guns aim.
 
-The Lancer turns using opposing bow/stern thrusters, with jets on the side opposite the required force. Hits emit sparks; destroyed ships collapse inward. `space_fx.gd` maintains a bounded particle pool for maneuvering jets, engine trails, impacts, and implosions. Purchase icons render the actual assembled models.
+The Lancer turns using opposing bow/stern thrusters, with jets on the side opposite the required force. Hits emit sparks; destroyed ships collapse inward. `scripts/effects/space_fx.gd` maintains a bounded particle pool for maneuvering jets, engine trails, impacts, and implosions. Purchase icons render the actual assembled models.
 
 From the repository root, regenerate the original fleet first, then expansion models and icons. Blender is required only to regenerate model assets; Python's standard library is sufficient for audio.
 
 ```text
-blender --background --python source/build_models.py
-blender --background --python source/render_fleet_icons.py
-blender --background --python source/build_expansion_models.py
-blender --background --python source/render_expansion_icons.py
-python source/generate_audio.py
+blender --background --python tools/asset_pipeline/build_models.py
+blender --background --python tools/asset_pipeline/render_fleet_icons.py
+blender --background --python tools/asset_pipeline/build_expansion_models.py
+blender --background --python tools/asset_pipeline/render_expansion_icons.py
+python tools/asset_pipeline/generate_audio.py
 ```
 
-`build_models.py` delegates to `build_detailed_models.py`. Renderers preserve game materials. `model_previews/fleet_gallery.png`, `nova_side.png`, `expansion_gallery.png`, `expansion_relay_side.png`, and `expansion_railgun_underside.png` document assembled models and underside detail. Models, textures, icons, and generated audio are original project assets with no external sample or stock-asset attribution requirements.
+`build_models.py` delegates to `build_detailed_models.py`. Renderers preserve game materials. `docs/model_previews/fleet_gallery.png`, `nova_side.png`, `expansion_gallery.png`, `expansion_relay_side.png`, and `expansion_railgun_underside.png` document assembled models and underside detail. Models, textures, icons, and generated audio are original project assets with no external sample or stock-asset attribution requirements.
 
 ## Checks and project structure
+
+See the [project structure guide](docs/PROJECT_STRUCTURE.md) for the directory layout, where new files belong, resource-move rules, and asset-generation paths. Scene-specific scripts are colocated under `scenes/`; shared logic is under `scripts/`; runtime assets are under `assets/`; Blender sources and generators are under `art/` and `tools/`.
 
 Run the automated suite from PowerShell:
 
@@ -103,8 +105,8 @@ Individual gameplay checks use `Godot --headless --path . -- --smoke-test`, repl
 
 `--balance-test` runs automated campaign strategies against legal budgets and placement. `--performance-test` exercises a bounded dense-combat workload; run it with rendering enabled when assessing frame timing. These checks support tuning and regression detection; see the balance and performance reports for their workloads and limitations.
 
-Run `Godot --path . -- --capture` to refresh `preview.png`. Run `Godot --path . -- --ui-capture` with a display to capture menus, gameplay, pause, results, and fullscreen under `work/ui_*.png`. The published map/settings examples above are stored in `docs/screenshots/`.
+Run `Godot --path . -- --capture` to refresh `docs/screenshots/gameplay.png`. Run `Godot --path . -- --ui-capture` with a display to capture menus, gameplay, pause, results, and fullscreen under `work/ui_*.png`. The published map/settings examples above are stored in `docs/screenshots/`.
 
-`game_data.gd` defines stable maps, waves, enemies, towers, and upgrades. `main.gd` manages simulation and session flow; `game_menu.gd` builds navigation; `run_storage.gd`, `game_settings.gd`, and `game_audio.gd` handle persistence and audio. `wormhole.gdshader` and `nebula.gdshader` draw the lane and backgrounds.
+`scripts/data/game_data.gd` defines stable maps, waves, enemies, towers, and upgrades. `scenes/gameplay/main.gd` manages simulation and session flow; `scenes/ui/game_menu.gd` builds navigation; `scripts/services/run_storage.gd`, `scripts/services/game_settings.gd`, and `scripts/services/game_audio.gd` handle persistence and audio. `assets/shaders/wormhole.gdshader` and `assets/shaders/nebula.gdshader` draw the lane and backgrounds.
 
 Further details: [Content and rules](docs/CONTENT.md), [Persistence](docs/PERSISTENCE.md), [Audio](docs/AUDIO.md), [Fleet assets](docs/ASSETS.md), [Balance](docs/BALANCE.md), and [Performance](docs/PERFORMANCE.md), and [Acceptance evidence](docs/ACCEPTANCE.md).
