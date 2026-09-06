@@ -6,24 +6,6 @@ Work through the phases in order, using focused commits within each phase. Recom
 
 P0 covers the first delivery sequence and its supporting requirements; P1 deepens the core game; P2 is the later expansion backlog. Prototype tasks should establish whether an idea improves play before expanding it.
 
-### Phase 1 — Upgrade decisions
-
-- [ ] **R01 · P0 — Upgrade UI:** replace the compact A/B buttons with named paths, icons, connected tier cards, visible effects and costs, explicit purchase/lock states, and equivalent keyboard/hover details. Keep selling separate from upgrade actions.
-- [ ] **R02 · P0 — Accurate previews:** show current → after-purchase effective stats, including Relay buffs and prerequisite tiers. Distinguish damage per hit, rate of fire, range, and Nova gun/pulse/drone contributions.
-- [ ] **R03 · P0 — Meaningful specializations:** give paths distinct tactical purposes while retaining three tiers initially. Support variable path counts for Relay and Nova; make exclusivity clear. Treat secondary-path purchases as a later experiment.
-
-### Phase 2 — Support fleet
-
-- [ ] **R04 · P0 — Support-only Relay:** remove offensive attacks and provide upgrade paths for nearby fleet **damage**, **weapon range**, and **rate of fire**. Distinguish Relay coverage from recipient range; define transparent stacking and prevent self/Relay amplification loops. Balance support investment against another offensive ship.
-- [ ] **R05 · P0 — Support visibility and inheritance:** highlight recipients during placement, show affected counts and bonus sources, and preview coverage changes. Define Nova drone inheritance through the carrier so bonuses apply once; verify overlapping auras and Relay removal.
-
-### Phase 3 — Fleet behavior
-
-- [ ] **R06 · P0 — Nova drone upgrade:** add one functional drone per tier (1/2/3). Idle drones orbit Nova; attacking drones swarm valid enemies within Nova's effective range, then retarget or return when targets die or leave range. Preserve existing gun behavior and make branch choices explicit.
-- [ ] **R07 · P0 — Cryostat aiming:** limit each gun to ±90° relative to its mount. Rotate the whole satellite with visible thrusters like Lancer when more rotation is needed; coordinate guns and body smoothly, show firing arcs, and prevent shots outside legal alignment.
-- [ ] **R08 · P1 — Targeting controls:** add useful priorities and role-appropriate defaults, with Nova focus/distribute behavior where useful. Preserve stable locks and saved selections; use remaining route distance for Closest to Core so future asymmetric routes work correctly.
-- [ ] **R24 · P0 — Performance and readability:** bound drones/effects, add reduced effect intensity, and validate drone-heavy fleets, overlapping support, and long sessions at supported simulation speeds. Keep essential targeting and status feedback legible.
-
 ### Phase 4 — Combat understanding and learning
 
 - [ ] **R09 · P1 — Enemy feedback:** separate shield and hull indicators; show armor, regeneration, slowing, and resistance with readable symbols and inspectable counterplay information.
@@ -56,6 +38,8 @@ P0 covers the first delivery sequence and its supporting requirements; P1 deepen
 - Run checks appropriate to each slice, including balance and rendered performance when combat or entity counts change. Mark tasks complete against their linked research success criteria.
 
 ## Completed
+
+- **2026-09-06 — Phases 1–3 (R01–R08, R24):** named upgrade paths and effective previews; support-only Relay with damage/range/fire-rate paths and visible coverage; Nova’s 1/2/3 drones; constrained Cryostat aiming; saved targeting controls; bounded effects and reduced intensity. Model scale, preparation saves, pause, and manual waves remain intact. Full suite, six campaigns, rendered UI, and drone/support lifetime checks passed. See [acceptance evidence](docs/PHASES_1_3_ACCEPTANCE.md) and [performance measurements](docs/PERFORMANCE.md).
 
 - **2026-09-06 — Project organization:** grouped scenes and their scripts, shared logic, runtime assets, Blender sources, tools, and documentation. Preserved resource IDs and save compatibility; the complete suite passed from a cache-free copy, with rendered UI and checkout startup/performance checks. See the [structure and verification guide](docs/PROJECT_STRUCTURE.md).
 - **2026-09-06 — Bloons TD research:** reviewed the latest confirmed BTD6 PC/mobile release (56.3), recent official design changes, and AstraTD gaps. See the [24 prioritized improvement proposals](docs/BLOONS_TD_RESEARCH.md), including upgrade UI, Nova drones, Cryostat aiming, and support-only Relay.

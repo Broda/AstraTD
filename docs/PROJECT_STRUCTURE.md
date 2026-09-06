@@ -7,11 +7,12 @@ project.godot
 Launch.cmd
 scenes/
   gameplay/             Main scene and its session/simulation script
-  ui/                   Menu and map-preview node scripts; future UI scenes
+  ui/                   Menu, map-preview, and fleet-inspector node scripts
 scripts/
   data/                 Shared map, wave, enemy, fleet, and upgrade definitions
   services/             Save storage, settings, and audio management
   effects/              Shared procedural effects
+  fleet/                Shared target selection and Nova drone controllers
 assets/
   models/<model_id>/     GLB plus that model's imported texture images
   textures/             Shared editable PBR texture maps

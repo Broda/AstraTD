@@ -34,11 +34,15 @@ function Invoke-WardensCheck([string]$Name, [string[]]$Arguments, [bool]$ExpectP
 }
 Invoke-WardensCheck 'import' @('--headless','--editor','--import','--quit') $false
 Invoke-WardensCheck 'content' @('--headless','--script','tests/content_data_test.gd')
+Invoke-WardensCheck 'upgrade-data' @('--headless','--script','tests/upgrade_data_test.gd')
+Invoke-WardensCheck 'nova-drones' @('--headless','--script','tests/nova_drone_test.gd')
+Invoke-WardensCheck 'fleet-panel' @('--headless','--script','tests/fleet_panel_test.gd','--','--fleet-panel-test')
 Invoke-WardensCheck 'storage-settings-audio' @('--headless','--script','tests/storage_test.gd')
-foreach ($taskCheck in @('smoke-test','combat-test','vfx-test','station-test','nova-target-test','nova-pulse-test','integration-test','menu-test','balance-test','performance-test')) {
+foreach ($taskCheck in @('smoke-test','combat-test','vfx-test','station-test','nova-target-test','nova-pulse-test','integration-test','fleet-systems-test','menu-test','balance-test','performance-test')) {
     Invoke-WardensCheck $taskCheck @('--headless','--',('--' + $taskCheck))
 }
 if ($CaptureUI) {
+    Invoke-WardensCheck 'fleet-panel-capture' @('--script','tests/fleet_panel_test.gd','--','--fleet-panel-test','--fleet-panel-capture')
     Invoke-WardensCheck 'ui-capture' @('--','--ui-capture')
     foreach ($taskPhase in @('write','read','windowed')) {
         Invoke-WardensCheck ('display-' + $taskPhase) @('--script','tests/display_test.gd','--',('--display-phase=' + $taskPhase))

@@ -19,7 +19,7 @@ Finite maps have explicitly authored rows containing ordered enemy groups, inter
 
 All maps begin with raiders. Swift ships and armor follow; shields and regeneration each get an introductory formation before dense combinations. Easy introduces shields at wave 5 and regeneration at wave 6; Normal at 4 and 6; Hard at 3 and 4. Hard splits successive spawns between its two approaches. Difficulty increases through formation composition, fewer initial resources, density, and route coverage; final finite hull multipliers are 4.0, 6.65, and 8.12.
 
-The economy retains kill credits, completion credits, and a no-purchase bonus. Buying between waves preserves the following wave's bonus. Finite milestone/completion rewards help pay for tier upgrades. Existing tower costs and upgrades are unchanged. A complete specialization costs 3.9 times the tower's base cost in upgrades, making deployed totals 4.9 times base cost (subject to the original integer truncation).
+The economy retains kill credits, completion credits, and a no-purchase bonus. Buying between waves preserves the following wave's bonus. Finite milestone/completion rewards help pay for tier upgrades. Base tower costs and tier pricing are retained; Relay and Nova now have additional mechanics and paths. A complete specialization costs 3.9 times the tower's base cost in upgrades, making deployed totals 4.9 times base cost (subject to the original integer truncation).
 
 Content validation confirms structural integrity and legacy parity; practical balance additionally requires combat simulations with legal budgets and placement. These definitions are tuned starting values, not a claim that every formation or strategy is equally effective.
 
@@ -42,13 +42,17 @@ Outer Rim intentionally keeps the original armor-as-extra-health behavior and fu
 
 ## Fleet and upgrades
 
-The original tower ordering is Lancer, Bastion, Nova, Cryostat. Railgun and Relay append to that order. Nova retains independent gun targeting. Its first Pulse Generator tier only unlocks area damage; later tiers add 65% damage and 0.25 range. The other Nova branch never unlocks the pulse.
+The original tower ordering is Lancer, Bastion, Nova, Cryostat. Railgun and Relay append to that order. Nova retains independent gun targeting. Its first Pulse Generator tier only unlocks area damage; later tiers add 65% damage and 0.25 range. Neither Long-range guns nor Drone swarm unlocks the pulse. Drone swarm adds 1/2/3 drones across its tiers, retaining the four guns. Each drone has 18 base damage, a 0.7-second firing interval, and 1.4 attack reach; its target must remain within Nova’s effective range.
 
 Railgun costs 300 credits, deals 118 damage every 2.35 seconds at range 8.2, and ignores armor. Its accelerator branch adds 65% damage per tier; its targeting branch adds 1.2 range and 16% damage per tier. Its slow cycle makes it less efficient against large groups of fragile ships.
 
-Relay's stable ID is `support`, with the model `relay`. It costs 190 credits, has two independently aiming mounts sharing one weak 7-damage hit at a 1.1-second cooldown, and provides an 18% damage aura within 5.6 range. The strongest nearby Relay aura applies to other units; multiple auras never add or multiply. Power amplification adds 10 percentage points per tier. Extended relay adds 1.2 range and 4 percentage points per tier. The aura trades another direct weapon for stronger nearby investment.
+Relay's stable ID is `support`, with model `relay`. It costs 190 credits and provides +18% damage within 5.6 coverage; it has no attacks or gun assemblies. Power amplification adds 10 percentage points of damage per tier. Targeting network (stable branch ID `relay`) adds 12 points of recipient weapon range and 0.4 coverage per tier. Fire-control network (`fire_control`) adds 12 points of rate of fire per tier. A recipient independently takes the largest in-range bonus for damage, range, and firing frequency. Relays never receive support, preventing loops. Drones use their carrier's already-supported stats and never scan a second aura at their flying position.
 
-Every tower has two exclusive branches and three tiers. `upgrade_for(tower_id, branch_index, tier)` returns a stable ID, stable branch ID, prerequisite upgrade ID, excluded branch ID, cost, explanation, and explicit additive/multiplicative effects. All effect keys are present with neutral defaults. Apply upgrades once in tier order when reconstructing a saved tower, without charging credits or changing bonus eligibility.
+Each path has three tiers. Nova and Relay have three exclusive paths; other ships have two. `upgrade_for(tower_id, branch_index, tier)` returns stable IDs, a unique tier name, icon, tactical purpose, prerequisite ID, excluded branch IDs, cost, explanation, and explicit effects. Apply upgrades once in tier order when restoring a save, without charges or reward changes. `fleet_stats.gd` owns these calculations for both previews and combat; future-tier previews apply every missing prerequisite. Frequency bonuses divide cooldown by `1 + bonus`, preserving the fraction of an in-progress cooldown when support or upgrades change.
+
+Target priorities rank by remaining route distance (Closest to Core / Last), remaining hull plus shield (Strongest), distance to the owner (Nearest), or unslowed enemies followed by Closest to Core (Needs slowing). Spawn order resolves ties. Railgun defaults to Strongest, Cryostat to Needs slowing, and other offensive ships to Closest to Core. Nova distributes stable valid locks by default and offers focus fire. Cryostat guns have ±90° local yaw limits and an alignment gate; the hull turns with paired thrusters only when tracking requires it, with a stopping margin to avoid boundary oscillation.
+
+See [phases 1–3 acceptance](PHASES_1_3_ACCEPTANCE.md) for paid-upgrade equivalence, support investment comparisons, and runtime coverage.
 
 ## API
 
