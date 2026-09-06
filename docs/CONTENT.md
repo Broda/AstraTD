@@ -61,4 +61,3 @@ Every tower has two exclusive branches and three tiers. `upgrade_for(tower_id, b
 - `upgrade_for(tower_id, branch_index, tier)`: a complete upgrade or an empty dictionary for invalid content.
 
 Run `Godot --headless --path . --script tests/content_data_test.gd` for map bounds and gates, finite progression, complete upgrades, defensive copies, and exact original stat/order/reward parity over 20 endless waves. Combat, menus, saves, settings, and audio require the integration checks as well.
-

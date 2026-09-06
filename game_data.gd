@@ -186,6 +186,3 @@ static func upgrade_for(tower_id: String, branch: int, tier: int) -> Dictionary:
    result.rate_multiplier = 0.72
    result.description = "Cooldown −28% · damage +16%"
  return result
-
-
-
