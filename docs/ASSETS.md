@@ -16,6 +16,13 @@ blender --background --python tools/asset_pipeline/build_expansion_models.py
 blender --background --python tools/asset_pipeline/render_expansion_icons.py
 ```
 
+To refresh only Relay's current purchase icon without regenerating unrelated
+icons or historical review images:
+
+```text
+blender --background --python tools/asset_pipeline/render_expansion_icons.py -- --icons relay
+```
+
 The original fleet generator creates the shared PBR maps in `assets/textures/`.
 The expansion generator uses those existing maps and writes only its own `.blend`
 and `.glb` files. Both sets of editable Blender sources pack their texture images;
@@ -36,16 +43,17 @@ Blender **−Y** is the bow and **+Z** is up. glTF export converts this to Godot
 | Stable asset ID | Role and visual identity | Exported anchors |
 | --- | --- | --- |
 | `railgun` | Long, narrow ship with an open twin-rail accelerator, amber field clamps, aft bridge, capacitor nacelles, and armored ventral recoil keel. | `Muzzle_0` at Godot `(0, 0.17, 1.51)` |
-| `relay` | Fixed triangular support station with three amplifier pods, a parabolic uplink dish, lower service drum, and braced undersides. | `GunSocket_0`, `GunSocket_1`, `AuraEmitter` |
-| `relay_gun` | Independent single-barrel support defense turret with elevation bearings, pulse collars, muzzle guard, and rear heat sink. | `BarrelPivot` with child `Muzzle_0` |
+| `relay` | Support-only triangular station with three amplifier pods, a parabolic uplink dish, lower service drum, and braced undersides. No offensive guns are mounted in the game or current icon. | `AuraEmitter`; unused legacy `GunSocket_0` and `GunSocket_1` retained in source |
+| `relay_gun` | Retired defense turret retained as an unused authoring/export resource. Its elevation bearings, pulse collars, muzzle guard, and rear heat sink document the earlier design. | `BarrelPivot` with child `Muzzle_0`; unused at runtime |
 | `shielded` | Broad defensive escort with swept ceramic shield vanes, forward blue emitters, reinforced keel, and dorsal shield generator. | `ShieldEmitter` |
 | `regenerator` | Repair frigate with green ringed cylindrical reservoirs, an exposed repair reactor, forked emitter booms, and ventral conduit armor. | `RepairEmitter` |
 
-Each relay gun root attaches at its station's `GunSocket_*`. Rotating the gun root
-provides yaw, while rotating `BarrelPivot` provides elevation and recoil; the
-station body stays fixed. The gun pivot is at local Godot `(0, 0.18, 0.02)` and the
-muzzle's rest position is `(0, 0.18, 0.54)`. Firing effects should originate from the
-resolved global muzzle position after those transforms, as with Nova and Cryostat.
+Relay's historical gun root attached at `GunSocket_*`: the root provided yaw,
+while `BarrelPivot` provided elevation and recoil. That assembly is no longer
+instantiated by gameplay or by the Relay icon renderer. The unused `relay_gun`
+source, GLB, and standalone icon are retained for authoring history; they are not
+current Relay equipment. Nova and Cryostat still use their own articulated
+weapon assemblies and transformed muzzle anchors.
 
 Relay uses warm orange emitters; railgun uses yellow amber; shielded ships use blue;
 regenerators use green. Their silhouettes differ as well as their materials, so
@@ -60,12 +68,15 @@ and pivoted surfaces even when their materials match.
 ## Visual review artifacts
 
 - `assets/icons/railgun.png` and `assets/icons/relay.png`: 256 × 256 transparent
-  purchase renders of the actual models, with the relay guns assembled.
+  purchase renders of the current models. Relay was refreshed for the support-only
+  design on 2026-09-06 and has no offensive gun assemblies.
 - `assets/icons/shielded.png` and `assets/icons/regenerator.png`: matching enemy
-  preview icons; `assets/icons/relay_gun.png` shows the independent gun.
-- `docs/model_previews/expansion_gallery.png`: labeled fleet and enemy gallery.
-- `docs/model_previews/expansion_relay_side.png`: low view of the station's separate
-  gun mounts, fixed dish, lower service drum, and underside braces.
+  preview icons; `assets/icons/relay_gun.png` is a historical render of the retired gun.
+- `docs/model_previews/expansion_gallery.png`: historical labeled fleet and enemy
+  gallery from the expansion. Its armed Relay depicts the earlier design.
+- `docs/model_previews/expansion_relay_side.png`: historical low view showing the
+  earlier gun assemblies, fixed dish, lower service drum, and underside braces.
+  The guns in this review image are no longer part of the live Relay.
 - `docs/model_previews/expansion_railgun_underside.png`: bottom view of the complete
   armored keel, pressure hull, accelerator, and engine nacelles.
 

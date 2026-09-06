@@ -1,11 +1,13 @@
 """Render expansion purchase icons and review images from editable sources.
 
 Run after build_expansion_models.py. Rendering never changes exported models.
-Station review images and icons assemble the same independent gun hierarchy
-used by the game. Optional WARDENS_RENDER_SAMPLES overrides quality for drafts.
+Relay renders show its support-only hull without the retired defense guns.
+Use -- --icons relay to regenerate only its purchase icon, leaving galleries
+untouched. Optional WARDENS_RENDER_SAMPLES overrides quality for drafts.
 """
-import math
+import argparse
 import os
+import sys
 
 import bpy
 from mathutils import Vector
@@ -17,6 +19,7 @@ PREVIEW = os.path.join(ROOT, "docs", "model_previews")
 os.makedirs(ICON, exist_ok=True)
 os.makedirs(PREVIEW, exist_ok=True)
 SAMPLES = int(os.environ.get("WARDENS_RENDER_SAMPLES", "40"))
+ICON_NAMES = ["railgun", "relay", "shielded", "regenerator", "relay_gun"]
 
 
 def clear():
@@ -40,14 +43,9 @@ def assembled(name, loc=(0, 0, 0)):
     root = bpy.data.objects.new(name + "_display", None)
     bpy.context.collection.objects.link(root)
     root.location = loc
-    objects = append_asset(name, root)
-    if name == "relay":
-        for socket in [o for o in objects if o and o.name.startswith("GunSocket_")]:
-            anchor = bpy.data.objects.new("Independent_weapon_display", None)
-            bpy.context.collection.objects.link(anchor)
-            anchor.parent = socket
-            anchor.rotation_euler.z = math.atan2(socket.location.x, -socket.location.y)
-            append_asset("relay_gun", anchor)
+    # Relay's original sockets remain in the authoring source, but the live
+    # support-only station no longer mounts relay_gun assemblies.
+    append_asset(name, root)
     return root
 
 
@@ -111,8 +109,8 @@ def plinth(x, y):
     bpy.context.object.data.materials.append(mat)
 
 
-def render():
-    for name in ["railgun", "relay", "shielded", "regenerator", "relay_gun"]:
+def render(icons_only=None):
+    for name in ICON_NAMES if icons_only is None else icons_only:
         clear()
         assembled(name)
         scene = studio()
@@ -123,6 +121,10 @@ def render():
         camera((2.5, -3.7, 5), target, scale)
         scene.render.filepath = os.path.join(ICON, name + ".png")
         bpy.ops.render.render(write_still=True)
+
+    if icons_only is not None:
+        print("SELECTED EXPANSION ICONS COMPLETE: " + ", ".join(icons_only))
+        return
 
     clear()
     scene = studio((1400, 1120), False)
@@ -161,4 +163,8 @@ def render():
 
 
 if __name__ == "__main__":
-    render()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--icons", nargs="+", choices=ICON_NAMES,
+                        help="Render only the selected purchase icons; leave review images unchanged.")
+    arguments = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    render(parser.parse_args(arguments).icons)
